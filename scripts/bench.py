@@ -11,6 +11,7 @@ Usage:
   ./bench.py --base-url http://vllm:8000 --key "$API_KEY" --prompt-tokens 512 --gen 128 -n 5
 """
 import argparse, json, statistics, time, urllib.request, uuid, sys, re
+from pathlib import Path
 
 def post_stream(url, key, body, timeout=1800):
     req = urllib.request.Request(
@@ -61,13 +62,45 @@ def metrics(url, key):
             out[name] = float(m.group(1))
     return out
 
-def filler(n_tokens):
-    """Roughly n_tokens of unique, low-entropy English so prefill is realistic."""
-    uniq = uuid.uuid4().hex
-    words = ("the quick brown fox jumps over the lazy dog while counting "
-             "tokens for a benchmark run ").split()
-    body = " ".join(words[i % len(words)] for i in range(int(n_tokens * 0.78)))
-    return f"session {uniq}\n{body}"
+CORPUS_DIR = Path(__file__).resolve().parent.parent
+
+
+def _corpus_text(kind):
+    """Real text of the kind this server actually serves.
+
+    Draft acceptance depends heavily on how predictable the prompt is, so a
+    repeated pangram measures something this machine will never do. "code" reads
+    this repository's own sources, "prose" its own Markdown.
+    """
+    if kind == "filler":
+        words = ("the quick brown fox jumps over the lazy dog while counting "
+                 "tokens for a benchmark run ").split()
+        return " ".join(words[i % len(words)] for i in range(200_000))
+    globs = ("**/*.py", "**/*.sh", "**/*.ts") if kind == "code" else ("**/*.md",)
+    parts = []
+    for pattern in globs:
+        for path in sorted(CORPUS_DIR.glob(pattern)):
+            if ".git" in path.parts or "results" in path.parts:
+                continue
+            try:
+                parts.append(path.read_text())
+            except (OSError, UnicodeDecodeError):
+                continue
+    if not parts:
+        raise SystemExit(f"no {kind} corpus found under {CORPUS_DIR}")
+    return "\n\n".join(parts)
+
+
+def filler(n_tokens, kind="code"):
+    """About n_tokens of realistic text, with a unique prefix to defeat caching.
+
+    Roughly 3.6 characters per token for code, which is close enough for a
+    benchmark that reports the server's own token count anyway.
+    """
+    text = _corpus_text(kind)
+    want = int(n_tokens * 3.6)
+    body = (text * (want // len(text) + 1))[:want]
+    return f"// benchmark session {uuid.uuid4().hex}\n{body}"
 
 def main():
     ap = argparse.ArgumentParser()
@@ -80,17 +113,19 @@ def main():
     ap.add_argument("--thinking", action="store_true", help="leave thinking on (default off for stable timing)")
     ap.add_argument("--warm", action="store_true", help="reuse the same prompt to measure the cached path")
     ap.add_argument("--top-k", type=int, default=20)
+    ap.add_argument("--corpus", choices=("code", "prose", "filler"), default="code",
+                    help="what kind of text to fill the prompt with")
     ap.add_argument("--json", help="write results to this path")
     a = ap.parse_args()
 
-    fixed = filler(a.prompt_tokens) if a.warm else None
+    fixed = filler(a.prompt_tokens, a.corpus) if a.warm else None
     m0 = metrics(a.base_url, a.key)
     rows = []
     for i in range(a.n + 1):  # first is a discarded warmup of the same shape
         body = {
             "model": a.model,
-            "messages": [{"role": "user", "content": (fixed or filler(a.prompt_tokens)) +
-                          "\n\nReply with exactly one plain paragraph of prose."}],
+            "messages": [{"role": "user", "content": (fixed or filler(a.prompt_tokens, a.corpus)) +
+                          "\n\nSummarise what the text above is for, in one plain paragraph."}],
             "max_tokens": a.gen,
             "stream": True,
             "stream_options": {"include_usage": True},
@@ -124,6 +159,7 @@ def main():
     med = lambda k: statistics.median(r[k] for r in rows)
     result = {
         "prompt_tokens": a.prompt_tokens, "gen": a.gen, "n": len(rows),
+        "corpus": a.corpus, "top_k": a.top_k,
         "thinking": a.thinking, "prefix_cache_path": "warm" if a.warm else "cold",
         "ttft_s_median": round(med("ttft_s"), 3),
         "decode_tok_s_median": round(med("decode_tok_s"), 1),
