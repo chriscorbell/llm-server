@@ -4,7 +4,9 @@ Last updated: 2026-09-07. Rewrite the affected lines whenever reality changes. T
 
 ## Current state
 
-Nothing is serving yet. The repository has been scaffolded and the plan agreed. Next action is Experiment 1: bring up Profile A and find the largest context that BF16 KV actually fits.
+Profile A is running and healthy on `vllm`, serving Qwen3.8-27B with vision, tool calling and thinking at 96K context. Reachable at `http://100.103.136.98:8000/v1` with the API key in `compose/.env` on the server.
+
+Next action: point opencode at it and run the task suite for a quality baseline.
 
 | | |
 |---|---|
@@ -20,7 +22,13 @@ Nothing is serving yet. The repository has been scaffolded and the plan agreed. 
 
 ## Findings
 
-None yet. Each Finding below cites the Experiment that produced it. Do not add a Finding without one.
+Each Finding cites the Experiment that produced it. Do not add a Finding without one.
+
+- **BF16 KV cannot reach 128K on this card.** vLLM's own estimate is 109,824 tokens at 0.96 utilization, and the running configuration uses 98,304. The real cost is 76 KiB per token rather than the 64 KiB the layer arithmetic predicts, because speculative decoding buffers and the Gated DeltaNet recurrent state also come out of that budget. [first boot](docs/log/2026-09-07-profile-a-first-boot.md)
+- **FP8 KV is slower here, not just less precise.** It decoded 39.3 tok/s against BF16's 48.4 and accepted fewer draft tokens, 37.3% against 42.6%. It buys capacity and nothing else: 181,484 KV tokens against 103,326. Use it only if context beyond 96K is worth more than speed and precision. [decode speed](docs/log/2026-09-07-decode-speed-and-mtp-acceptance.md)
+- **Omitting `top_k` costs real throughput.** Adding Qwen's recommended `top_k: 20` lifted draft acceptance from 43% to 53% and decode from 42 to 52 tok/s. Any client that does not send it is leaving speed on the table. [decode speed](docs/log/2026-09-07-decode-speed-and-mtp-acceptance.md)
+- **oneCCL needs `/dev/dri` bind mounted, not just device mapped.** Without it the engine dies at startup with `opendir failed: could not open device directory`, even on a single GPU. [first boot](docs/log/2026-09-07-profile-a-first-boot.md)
+- **This build returns thinking in `message.reasoning`.** Not `message.reasoning_content`. A client reading only the older field sees empty reasoning and a correct answer. [first boot](docs/log/2026-09-07-profile-a-first-boot.md)
 
 ## Configuration in force
 
@@ -38,10 +46,10 @@ Defined in `compose/.env` on the server, template in `compose/.env.example`. The
 
 Ideas not yet tested. Move one into `docs/log/` the moment you test it.
 
-- Does BF16 KV fit at 131,072 tokens? The arithmetic is tight and probably says no. Weights and vision tower take 19.1 GiB of 31.9 GiB usable. BF16 KV costs 64 KiB per token, so 131,072 tokens is 8.0 GiB, leaving 4.8 GiB for activations, XPU graphs and speculative buffers. Published runs on this card at FP8 KV and the same context left only about 870 MiB free, which suggests overhead near 7.9 GiB and therefore a BF16 ceiling closer to 64K or 96K. Measure it, do not assume it. This is Experiment 1.
-- Is FP8 KV distinguishable from BF16 KV on the task suite? If not, spend the saving on context up to 262,144.
+- Why does decode sit near 50 tok/s when the published figure for this checkpoint on this card is 84? The most likely answer is prompt content: the benchmark generator emits a repeated pangram, and draft acceptance is very sensitive to how predictable the text is. Rerun with real prose and code at higher repetition counts before treating 50 tok/s as this machine's ceiling.
+- Does prefix caching help or hurt? Three repetitions was too noisy to tell and the comparison came out both ways. Needs a deterministic harness and a realistic multi-turn prompt, which is the case prefix caching exists for.
 - What does `xhigh` reasoning effort buy over `medium` on the task suite, and at what wall-clock cost?
-- Does prefix caching help or hurt here? Upstream measured 91% hit rate single-stream but no decode gain, and the recipe disables it. It is enabled in this repository's compose because an agent client re-sends a growing conversation, which is the case prefix caching exists for.
+- Is FP8 KV distinguishable from BF16 KV on the task suite? Only worth answering if you want context past 96K, now that FP8 KV is known to be slower.
 - The optional INT4 draft overlay raises decode from 83.7 to 112.7 tok/s but changes draft logits. Off, and staying off until the baseline is characterized.
 - Intel's `llm-scaler-vllm` image would remove the need for vendored patches once it lists Qwen3.8. Re-check at each release.
 

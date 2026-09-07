@@ -20,7 +20,8 @@ def post_stream(url, key, body, timeout=1800):
     )
     t0 = time.monotonic()
     ttft = None
-    ntok = 0
+    chunks = 0
+    completion_tokens = None
     with urllib.request.urlopen(req, timeout=timeout) as r:
         for raw in r:
             line = raw.decode().strip()
@@ -30,12 +31,19 @@ def post_stream(url, key, body, timeout=1800):
             if payload == "[DONE]":
                 break
             chunk = json.loads(payload)
+            if chunk.get("usage"):
+                completion_tokens = chunk["usage"].get("completion_tokens")
+            if not chunk.get("choices"):
+                continue
             delta = chunk["choices"][0].get("delta", {})
-            if delta.get("content") or delta.get("reasoning_content"):
+            if delta.get("content") or delta.get("reasoning") or delta.get("reasoning_content"):
                 if ttft is None:
                     ttft = time.monotonic() - t0
-                ntok += 1
+                chunks += 1
     total = time.monotonic() - t0
+    # Speculative decoding can carry several tokens in one stream chunk, so counting
+    # chunks understates the rate. Trust the server's own usage count when present.
+    ntok = completion_tokens if completion_tokens else chunks
     return ttft, ntok, total
 
 def metrics(url, key):
@@ -71,6 +79,7 @@ def main():
     ap.add_argument("-n", type=int, default=5)
     ap.add_argument("--thinking", action="store_true", help="leave thinking on (default off for stable timing)")
     ap.add_argument("--warm", action="store_true", help="reuse the same prompt to measure the cached path")
+    ap.add_argument("--top-k", type=int, default=20)
     ap.add_argument("--json", help="write results to this path")
     a = ap.parse_args()
 
@@ -84,8 +93,12 @@ def main():
                           "\n\nReply with exactly one plain paragraph of prose."}],
             "max_tokens": a.gen,
             "stream": True,
+            "stream_options": {"include_usage": True},
             "temperature": 1.0 if a.thinking else 0.7,
             "top_p": 0.95 if a.thinking else 0.8,
+            # Qwen's recommended top_k. Omitting it widens the sampling distribution
+            # and measurably lowers speculative acceptance.
+            "top_k": a.top_k,
             "chat_template_kwargs": {"enable_thinking": bool(a.thinking)},
         }
         ttft, ntok, total = post_stream(a.base_url, a.key, body)

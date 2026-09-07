@@ -15,7 +15,7 @@ echo 'export LLM_SERVER_API_KEY=...' >> ~/.zshrc
 ## Why these settings
 
 - **`reasoning_effort: "xhigh"`** matches the server default. Lower it per session when you want speed over depth.
-- **Sampling** follows Qwen's own recommendation for thinking mode: temperature 1.0, top_p 0.95, top_k 20. Greedy decoding degrades this model noticeably, so do not set temperature 0.
+- **Sampling** follows Qwen's own recommendation for thinking mode: temperature 1.0, top_p 0.95, top_k 20. Do not drop `top_k`. Measured on this server, omitting it lowers speculative acceptance from 53% to 43% and costs about a fifth of decode speed.
 - **`npm: "@ai-sdk/openai-compatible"`** rather than the plain OpenAI provider, because the server is not OpenAI and the strict provider sends fields vLLM rejects.
 - **Context is declared as the server's actual limit**, not the model's 262,144 native window. Opencode uses this to decide when to compact, and overstating it means requests fail at the boundary instead of compacting. Update it whenever `MAX_MODEL_LEN` changes on the server.
 

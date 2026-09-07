@@ -22,16 +22,17 @@ post <<JSON | python3 -c 'import json,sys; d=json.load(sys.stdin); print(repr(d[
  "max_tokens":16,"chat_template_kwargs":{"enable_thinking":false}}
 JSON
 
-say "thinking turn, reasoning content must be present"
+say "thinking turn, reasoning must be present"
 post <<JSON | python3 -c '
 import json,sys
 m = json.load(sys.stdin)["choices"][0]["message"]
-r = m.get("reasoning_content") or ""
+# This build names the field "reasoning"; older ones use "reasoning_content".
+r = m.get("reasoning") or m.get("reasoning_content") or ""
 print("reasoning chars:", len(r))
 print("answer:", repr((m.get("content") or "")[:120]))
 sys.exit(0 if len(r) > 0 else 1)' || fail=1
 {"model":"$MODEL","messages":[{"role":"user","content":"A bat and ball cost 1.10 together. The bat costs 1.00 more than the ball. What does the ball cost?"}],
- "max_tokens":2048,"temperature":1.0,"top_p":0.95,"chat_template_kwargs":{"enable_thinking":true}}
+ "max_tokens":4096,"temperature":1.0,"top_p":0.95,"chat_template_kwargs":{"enable_thinking":true}}
 JSON
 
 say "tool calling"
