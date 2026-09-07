@@ -37,6 +37,11 @@ Refuted. Prefill throughput is identical to three significant figures at 64K, an
 
 Prefill is not chunk-bound on this card. At roughly 1,400 to 1,700 tok/s it is limited by the per-token work itself, not by how the work is grouped, which is consistent with the same rate appearing at every prompt size measured today.
 
+A third arm at a 32,768-token chunk and 72K context was attempted and produced no
+measurement: the server did not reach health inside the driver's wait, and its logs
+were lost when the next experiment restarted the container. It is not needed. The
+16,384 arm is a clean single-variable test and it is flat.
+
 ## Consequences
 
 `MAX_BATCHED_TOKENS` stays at 8,192. The finding is recorded so nobody spends another hour on it. The 82-second cold start at 90K remains, and prefix caching remains the only measure that has actually moved it, from 19.5 seconds to 1.1 at 32K.
