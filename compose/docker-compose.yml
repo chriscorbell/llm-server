@@ -1,0 +1,128 @@
+# Qwen3.8-27B on one Intel Arc Pro B70. See ../STATUS.md for what is current.
+#
+# One Profile runs at a time; the GPU holds one model.
+#   docker compose --profile a-bf16kv up -d
+#   docker compose --profile a-fp8kv  up -d
+#
+# Every tunable lives in .env so that a Profile difference is a one-line diff in a log entry.
+
+x-b70-common: &b70-common
+  image: ${VLLM_IMAGE}
+  restart: unless-stopped
+  # Bound to the Tailscale address only. Never publish on 0.0.0.0.
+  ports:
+    - "${BIND_ADDR}:${PORT}:8000"
+  devices:
+    - /dev/dri:/dev/dri
+  group_add:
+    - "${RENDER_GID}"
+  ipc: host
+  shm_size: "8gb"
+  volumes:
+    - ${MODEL_DIR}:/model:ro
+    - ./patches/patch_mtp_nightly.py:/patches/patch_mtp_nightly.py:ro
+    - ./patches/patch_mtp_boundary.py:/patches/patch_mtp_boundary.py:ro
+    - ./patches/patch_gdn_mixed_split_v5.py:/patches/patch_gdn_mixed_split_v5.py:ro
+    - ${HF_CACHE:-./.hf-cache}:/tmp/hf
+  environment:
+    VLLM_TARGET_DEVICE: xpu
+    ZE_FLAT_DEVICE_HIERARCHY: COMPOSITE
+    ZE_AFFINITY_MASK: "0"
+    # Level Zero refuses single allocations over 4 GiB by default. The KV cache
+    # exceeds that at long context, so this is required, not optional.
+    UR_L0_ENABLE_RELAXED_ALLOCATION_LIMITS: "1"
+    B70_MTP_BF16_DRAFT: "1"
+    VLLM_XPU_ENABLE_XPU_GRAPH: "1"
+    PYTORCH_ALLOC_CONF: expandable_segments:True
+    VLLM_API_KEY: ${API_KEY}
+    HF_HOME: /tmp/hf
+  healthcheck:
+    test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+    interval: 30s
+    timeout: 5s
+    start_period: 600s
+    retries: 3
+  entrypoint:
+    - bash
+    - -lc
+  logging:
+    driver: json-file
+    options:
+      max-size: "50m"
+      max-file: "5"
+
+services:
+  # Baseline. BF16 KV cache. Vision on. MTP4. Single sequence.
+  vllm-a-bf16kv:
+    <<: *b70-common
+    container_name: qwen38
+    profiles: ["a-bf16kv"]
+    command:
+      - >-
+        set -e;
+        python /patches/patch_mtp_nightly.py;
+        python /patches/patch_mtp_boundary.py;
+        exec vllm serve /model
+        --served-model-name ${SERVED_NAME}
+        --quantization gptq
+        --dtype float16
+        --kv-cache-dtype auto
+        --max-model-len ${MAX_MODEL_LEN_BF16KV}
+        --gpu-memory-utilization ${GPU_UTIL}
+        --max-num-seqs ${MAX_NUM_SEQS}
+        --max-num-batched-tokens ${MAX_BATCHED_TOKENS}
+        --enable-prefix-caching
+        --enable-auto-tool-choice
+        --tool-call-parser ${TOOL_PARSER}
+        --reasoning-parser ${REASONING_PARSER}
+        --speculative-config '{"method":"mtp","num_speculative_tokens":${MTP_TOKENS}}'
+        --port 8000
+
+  # Experiment arm. FP8 KV halves cache cost per token and buys context.
+  vllm-a-fp8kv:
+    <<: *b70-common
+    container_name: qwen38
+    profiles: ["a-fp8kv"]
+    command:
+      - >-
+        set -e;
+        python /patches/patch_mtp_nightly.py;
+        python /patches/patch_mtp_boundary.py;
+        exec vllm serve /model
+        --served-model-name ${SERVED_NAME}
+        --quantization gptq
+        --dtype float16
+        --kv-cache-dtype fp8
+        --max-model-len ${MAX_MODEL_LEN_FP8KV}
+        --gpu-memory-utilization ${GPU_UTIL}
+        --max-num-seqs ${MAX_NUM_SEQS}
+        --max-num-batched-tokens ${MAX_BATCHED_TOKENS}
+        --enable-prefix-caching
+        --enable-auto-tool-choice
+        --tool-call-parser ${TOOL_PARSER}
+        --reasoning-parser ${REASONING_PARSER}
+        --speculative-config '{"method":"mtp","num_speculative_tokens":${MTP_TOKENS}}'
+        --port 8000
+
+  # Control arm. No speculative decoding, for attributing a quality change to MTP.
+  vllm-a-nospec:
+    <<: *b70-common
+    container_name: qwen38
+    profiles: ["a-nospec"]
+    command:
+      - >-
+        set -e;
+        exec vllm serve /model
+        --served-model-name ${SERVED_NAME}
+        --quantization gptq
+        --dtype float16
+        --kv-cache-dtype ${KV_DTYPE:-auto}
+        --max-model-len ${MAX_MODEL_LEN_BF16KV}
+        --gpu-memory-utilization ${GPU_UTIL}
+        --max-num-seqs ${MAX_NUM_SEQS}
+        --max-num-batched-tokens ${MAX_BATCHED_TOKENS}
+        --enable-prefix-caching
+        --enable-auto-tool-choice
+        --tool-call-parser ${TOOL_PARSER}
+        --reasoning-parser ${REASONING_PARSER}
+        --port 8000

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "llm-server": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "llm-server (vllm)",
+      "options": {
+        "baseURL": "http://vllm:8000/v1",
+        "apiKey": "{env:LLM_SERVER_API_KEY}"
+      },
+      "models": {
+        "qwen38": {
+          "name": "Qwen3.8-27B GPTQ-INT4",
+          "attachment": true,
+          "reasoning": true,
+          "tool_call": true,
+          "limit": {
+            "context": 131072,
+            "output": 32768
+          },
+          "options": {
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "top_k": 20,
+            "reasoning_effort": "xhigh"
+          }
+        }
+      }
+    }
+  },
+  "model": "llm-server/qwen38"
+}

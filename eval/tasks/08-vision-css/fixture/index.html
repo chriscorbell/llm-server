@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fleet overview</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <nav class="sidebar">
+      <p class="brand">Fleet</p>
+      <ul>
+        <li class="active">Overview</li>
+        <li>Machines</li>
+        <li>Jobs</li>
+        <li>Alerts</li>
+        <li>Settings</li>
+      </ul>
+    </nav>
+    <main class="content">
+      <h1>Overview</h1>
+      <p class="lede">Five machines reporting. Two jobs running. No open alerts.</p>
+      <section class="cards">
+        <article class="card">
+          <h2>minicore</h2>
+          <p class="metric">31%</p>
+          <p class="label">memory in use</p>
+        </article>
+        <article class="card">
+          <h2>vllm</h2>
+          <p class="metric">96%</p>
+          <p class="label">gpu utilisation</p>
+        </article>
+        <article class="card">
+          <h2>rpi5</h2>
+          <p class="metric">4%</p>
+          <p class="label">cpu load</p>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
