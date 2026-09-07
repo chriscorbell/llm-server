@@ -27,7 +27,7 @@ Next action: map decode speed against context length, and settle the prefix cach
 Each Finding cites the Experiment that produced it. Do not add a Finding without one.
 
 - **BF16 KV cannot reach 128K on this card.** vLLM's own estimate is 109,824 tokens at 0.96 utilization, and the running configuration uses 98,304. The real cost is 76 KiB per token rather than the 64 KiB the layer arithmetic predicts, because speculative decoding buffers and the Gated DeltaNet recurrent state also come out of that budget. [first boot](docs/log/2026-09-07-profile-a-first-boot.md)
-- **FP8 KV is slower here, not just less precise.** It decoded 39.3 tok/s against BF16's 48.4 and accepted fewer draft tokens, 37.3% against 42.6%. It buys capacity and nothing else: 181,484 KV tokens against 103,326. Use it only if context beyond 96K is worth more than speed and precision. [decode speed](docs/log/2026-09-07-decode-speed-and-mtp-acceptance.md)
+- **FP8 KV costs prefill and buys capacity. Decode is a wash.** Repeated across four prompt sizes, decode differences sit inside run-to-run spread, but FP8 prefills 15 to 27% slower, which worsens the dominant cost of long context. It holds 181,484 KV tokens against 103,326, so it is the only route past a 96K window. An earlier claim that FP8 is simply slower was drawn from a single noisy pair and is withdrawn. [FP8 KV at long context](docs/log/2026-09-07-fp8-kv-at-long-context.md)
 - **Omitting `top_k` costs real throughput.** Adding Qwen's recommended `top_k: 20` lifted draft acceptance from 43% to 53% and decode from 42 to 52 tok/s. Any client that does not send it is leaving speed on the table. [decode speed](docs/log/2026-09-07-decode-speed-and-mtp-acceptance.md)
 - **oneCCL needs `/dev/dri` bind mounted, not just device mapped.** Without it the engine dies at startup with `opendir failed: could not open device directory`, even on a single GPU. [first boot](docs/log/2026-09-07-profile-a-first-boot.md)
 - **Decode speed is set by how predictable the output is, not the prompt.** Free prose gives 44.8 tok/s at 40% draft acceptance, writing new code gives 56.3 at 56%, and reproducing a file verbatim gives 85.2 at 100%. Swapping the prompt between code, prose and nonsense moves it by about 2 tok/s. [what drives decode speed](docs/log/2026-09-07-what-actually-drives-decode-speed.md)
@@ -54,8 +54,6 @@ Defined in `compose/.env` on the server, template in `compose/.env.example`. The
 
 Ideas not yet tested. Move one into `docs/log/` the moment you test it.
 
-- Would a larger `MAX_BATCHED_TOKENS` than 8192 prefill faster? Fewer, bigger chunks should help the 82-second cold start at 90K. Costs VRAM, which is the scarce resource.
-- Does FP8 KV win at long context? It halves the bytes read per forward pass, which is exactly the term that grows with context, so the short-context loss measured earlier may reverse past 64K.
 - Is the pegged engine thread the limiter? Decode sits about 30% below the bandwidth ceiling. Worth testing a `performance` governor and CPU pinning before concluding anything.
 - The cookbook's optional INT4 draft overlay claims decode from 83.7 to 112.7 tok/s. Untested here, and it changes draft logits, so it needs the task suite run alongside it.
 - Does prefix caching help or hurt? Three repetitions was too noisy to tell and the comparison came out both ways. Needs a deterministic harness and a realistic multi-turn prompt, which is the case prefix caching exists for.
