@@ -1,6 +1,6 @@
 # YYYY-MM-DD Short title
 
-Status: in progress | concluded | superseded by [entry](./YYYY-MM-DD-other.md)
+Status: in progress | concluded | superseded by an entry you link here
 Profile: A | B | ad hoc
 Author: agent thread on mbp
 
