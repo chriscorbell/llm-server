@@ -19,6 +19,10 @@ x-b70-common: &b70-common
   ipc: host
   shm_size: "8gb"
   volumes:
+    # The device mapping above exposes the nodes but not the directory listing.
+    # oneCCL enumerates /dev/dri at startup and dies with "opendir failed" without
+    # this bind mount, even on a single GPU.
+    - /dev/dri:/dev/dri:ro
     - ${MODEL_DIR}:/model:ro
     - ./patches/patch_mtp_nightly.py:/patches/patch_mtp_nightly.py:ro
     - ./patches/patch_mtp_boundary.py:/patches/patch_mtp_boundary.py:ro
