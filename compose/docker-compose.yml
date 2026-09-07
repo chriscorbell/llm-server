@@ -18,6 +18,10 @@ x-b70-common: &b70-common
     - "${RENDER_GID}"
   ipc: host
   shm_size: "8gb"
+  # The engine core loop is a single hot thread. Pinning it inside one CCX keeps it
+  # on one L3 slice instead of migrating across the eight on this Threadripper.
+  # Empty means unpinned, which is the default.
+  cpuset: "${CPUSET:-}"
   volumes:
     # The device mapping above exposes the nodes but not the directory listing.
     # oneCCL enumerates /dev/dri at startup and dies with "opendir failed" without
