@@ -12,6 +12,10 @@
         "qwen38": {
           "name": "Qwen3.8-27B GPTQ-INT4",
           "attachment": true,
+          // modalities is what actually gates image input. Without it opencode
+          // tells the model a file was attached instead of sending the image,
+          // and the model correctly replies that it cannot see anything.
+          "modalities": { "input": ["text", "image"], "output": ["text"] },
           "reasoning": true,
           "tool_call": true,
           "limit": {

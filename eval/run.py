@@ -43,11 +43,25 @@ def run_task(task: Path, model: str, timeout: int, keep: bool) -> dict:
 
     prompt = (task / "prompt.md").read_text().strip()
     screenshot = task / "screenshot.png"
+    if screenshot.exists() and not os.environ.get("EVAL_CLIENT_SENDS_IMAGES"):
+        # opencode 1.18.27 attaches images with mime text/plain, so the model never
+        # receives an image and the task measures the client, not the model. Score
+        # vision with eval/vision_check.py against the API instead. Set
+        # EVAL_CLIENT_SENDS_IMAGES=1 once the client is fixed to re-enable this.
+        shutil.rmtree(workdir, ignore_errors=True)
+        return {
+            "task": task.name, "status": "skip", "seconds": 0.0, "verify_exit": 2,
+            "verify_tail": ["skipped: this client cannot attach images;"
+                            " run eval/vision_check.py"],
+            "workdir": None,
+        }, "skipped: client cannot attach images"
 
     cmd = ["opencode", "run", "--dir", str(workdir), "-m", model, "--auto",
            "--title", f"eval {task.name}"]
     if screenshot.exists():
-        cmd += ["-f", str(screenshot)]
+        # --file is a greedy array option: "-f path prompt" swallows the prompt as a
+        # second filename and fails with "File not found". The = form takes one value.
+        cmd += [f"--file={screenshot}"]
     cmd += [prompt]
 
     started = time.monotonic()

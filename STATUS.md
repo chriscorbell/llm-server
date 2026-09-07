@@ -6,7 +6,9 @@ Last updated: 2026-09-07. Rewrite the affected lines whenever reality changes. T
 
 Profile A is running and healthy on `vllm`, serving Qwen3.8-27B with vision, tool calling and thinking at 96K context. Reachable at `http://100.103.136.98:8000/v1` with the API key in `compose/.env` on the server.
 
-Next action: point opencode at it and run the task suite for a quality baseline.
+The task suite passes eight of eight capabilities: seven coding tasks through opencode, and vision through the API. See the [baseline](docs/log/2026-09-07-task-suite-baseline.md).
+
+Next action: rerun `scripts/bench.py` with the realistic code and prose corpora now that it no longer uses synthetic filler, and settle the prefix caching question with a multi-turn prompt.
 
 | | |
 |---|---|
@@ -28,6 +30,8 @@ Each Finding cites the Experiment that produced it. Do not add a Finding without
 - **FP8 KV is slower here, not just less precise.** It decoded 39.3 tok/s against BF16's 48.4 and accepted fewer draft tokens, 37.3% against 42.6%. It buys capacity and nothing else: 181,484 KV tokens against 103,326. Use it only if context beyond 96K is worth more than speed and precision. [decode speed](docs/log/2026-09-07-decode-speed-and-mtp-acceptance.md)
 - **Omitting `top_k` costs real throughput.** Adding Qwen's recommended `top_k: 20` lifted draft acceptance from 43% to 53% and decode from 42 to 52 tok/s. Any client that does not send it is leaving speed on the table. [decode speed](docs/log/2026-09-07-decode-speed-and-mtp-acceptance.md)
 - **oneCCL needs `/dev/dri` bind mounted, not just device mapped.** Without it the engine dies at startup with `opendir failed: could not open device directory`, even on a single GPU. [first boot](docs/log/2026-09-07-profile-a-first-boot.md)
+- **On real coding traffic the machine does 57.7 tok/s at short context and 18.0 tok/s at about 28K, with 66 to 69% draft acceptance and an 85% prefix cache hit rate.** These supersede the synthetic-prompt figures: text predictability drives draft acceptance, and the earlier pangram benchmark understated the machine badly. [task suite](docs/log/2026-09-07-task-suite-baseline.md)
+- **opencode 1.18.27 cannot send images to this server.** It attaches files with mime `text/plain`, so the model receives a text file and correctly says it cannot see an image. Vision itself works: score it with `eval/vision_check.py`, which sends a proper image part. Also note `--file` is a greedy option, so the message must come before `--file=<path>`. [task suite](docs/log/2026-09-07-task-suite-baseline.md)
 - **This build returns thinking in `message.reasoning`.** Not `message.reasoning_content`. A client reading only the older field sees empty reasoning and a correct answer. [first boot](docs/log/2026-09-07-profile-a-first-boot.md)
 
 ## Configuration in force
@@ -46,7 +50,8 @@ Defined in `compose/.env` on the server, template in `compose/.env.example`. The
 
 Ideas not yet tested. Move one into `docs/log/` the moment you test it.
 
-- Why does decode sit near 50 tok/s when the published figure for this checkpoint on this card is 84? The most likely answer is prompt content: the benchmark generator emits a repeated pangram, and draft acceptance is very sensitive to how predictable the text is. Rerun with real prose and code at higher repetition counts before treating 50 tok/s as this machine's ceiling.
+- Rerun `scripts/bench.py` now that it fills prompts from real code and prose rather than a repeated pangram. Live traffic reached 66 to 69% acceptance where the synthetic benchmark saw 43%, so the earlier absolute figures should be replaced, not just annotated.
+- Decode at about 28K context fell to 18.0 tok/s from 57.7 at short context. Map that curve properly before deciding whether 96K is comfortable to work at or merely possible.
 - Does prefix caching help or hurt? Three repetitions was too noisy to tell and the comparison came out both ways. Needs a deterministic harness and a realistic multi-turn prompt, which is the case prefix caching exists for.
 - What does `xhigh` reasoning effort buy over `medium` on the task suite, and at what wall-clock cost?
 - Is FP8 KV distinguishable from BF16 KV on the task suite? Only worth answering if you want context past 96K, now that FP8 KV is known to be slower.
