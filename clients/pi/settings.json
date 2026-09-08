@@ -16,5 +16,8 @@
       "maxRetries": 0,
       "maxRetryDelayMs": 60000
     }
-  }
+  },
+  "quietStartup": true,
+  "showCacheMissNotices": true,
+  "shellCommandPrefix": "shopt -s expand_aliases\neval \"$(grep '^alias ' ~/.zshrc)\""
 }
