@@ -3,6 +3,7 @@
 # One Profile runs at a time; the GPU holds one model.
 #   docker compose --profile a-bf16kv up -d
 #   docker compose --profile a-fp8kv  up -d
+#   docker compose --profile a-int4draft up -d
 #
 # Every tunable lives in .env so that a Profile difference is a one-line diff in a log entry.
 
@@ -31,6 +32,8 @@ x-b70-common: &b70-common
     - ./patches/patch_mtp_nightly.py:/patches/patch_mtp_nightly.py:ro
     - ./patches/patch_mtp_boundary.py:/patches/patch_mtp_boundary.py:ro
     - ./patches/patch_gdn_mixed_split_v5.py:/patches/patch_gdn_mixed_split_v5.py:ro
+    - ./patches/patch_draft_lmhead_int4.py:/patches/patch_draft_lmhead_int4.py:ro
+    - ./patches/patch_draft_mtp_int4.py:/patches/patch_draft_mtp_int4.py:ro
     - ${HF_CACHE:-./.hf-cache}:/tmp/hf
   environment:
     VLLM_TARGET_DEVICE: xpu
@@ -71,6 +74,49 @@ services:
         set -e;
         python /patches/patch_mtp_nightly.py;
         python /patches/patch_mtp_boundary.py;
+        exec vllm serve /model
+        --served-model-name ${SERVED_NAME}
+        --quantization gptq
+        --dtype float16
+        --kv-cache-dtype auto
+        --max-model-len ${MAX_MODEL_LEN_BF16KV}
+        --gpu-memory-utilization ${GPU_UTIL}
+        --max-num-seqs ${MAX_NUM_SEQS}
+        --max-num-batched-tokens ${MAX_BATCHED_TOKENS}
+        --enable-prefix-caching
+        --enable-auto-tool-choice
+        --tool-call-parser ${TOOL_PARSER}
+        --reasoning-parser ${REASONING_PARSER}
+        --speculative-config '{"method":"mtp","num_speculative_tokens":${MTP_TOKENS}}'
+        --port 8000
+
+  # Experiment arm. Same as a-bf16kv plus the upstream INT4 draft overlay: the
+  # draft's LM head copy and its five MTP linears are requantized to INT4 at load.
+  # The target model and its verification head are untouched. Single card only;
+  # the patches refuse to run under tensor parallelism.
+  vllm-a-int4draft:
+    <<: *b70-common
+    container_name: qwen38
+    profiles: ["a-int4draft"]
+    environment:
+      VLLM_TARGET_DEVICE: xpu
+      ZE_FLAT_DEVICE_HIERARCHY: COMPOSITE
+      ZE_AFFINITY_MASK: "0"
+      UR_L0_ENABLE_RELAXED_ALLOCATION_LIMITS: "1"
+      B70_MTP_BF16_DRAFT: "1"
+      B70_DRAFT_LMHEAD_INT4: "1"
+      B70_DRAFT_MTP_INT4: "1"
+      VLLM_XPU_ENABLE_XPU_GRAPH: "1"
+      PYTORCH_ALLOC_CONF: expandable_segments:True
+      VLLM_API_KEY: ${API_KEY}
+      HF_HOME: /tmp/hf
+    command:
+      - >-
+        set -e;
+        python /patches/patch_mtp_nightly.py;
+        python /patches/patch_mtp_boundary.py;
+        python /patches/patch_draft_lmhead_int4.py;
+        python /patches/patch_draft_mtp_int4.py;
         exec vllm serve /model
         --served-model-name ${SERVED_NAME}
         --quantization gptq
