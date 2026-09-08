@@ -9,6 +9,7 @@ The goal is model quality first, then usable context, then decode speed, for one
 - [`STATUS.md`](STATUS.md) is the current truth. What is running, what is measured, what is broken.
 - [`AGENTS.md`](AGENTS.md) is how to work in this repository, including the duty to record findings.
 - [`CONTEXT.md`](CONTEXT.md) is the glossary.
+- [`clients/pi/`](clients/pi/README.md) is the checked MacBook client configuration and launch guide.
 - [`docs/log/`](docs/log/) is one file per Experiment, oldest to newest.
 - [`docs/research/`](docs/research/) holds the background research the plan was built on.
 

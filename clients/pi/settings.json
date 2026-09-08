@@ -1,0 +1,20 @@
+{
+  "defaultProvider": "llm-server",
+  "defaultModel": "qwen38",
+  "defaultThinkingLevel": "xhigh",
+  "theme": "dark",
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 40960,
+    "keepRecentTokens": 20000
+  },
+  "retry": {
+    "enabled": true,
+    "maxRetries": 3,
+    "baseDelayMs": 2000,
+    "provider": {
+      "maxRetries": 0,
+      "maxRetryDelayMs": 60000
+    }
+  }
+}

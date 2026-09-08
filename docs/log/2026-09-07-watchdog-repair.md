@@ -1,6 +1,6 @@
 # 2026-09-07 Watchdog recovery repair
 
-Status: in progress
+Status: concluded
 Profile: A, existing live engine unchanged
 
 ## Hypothesis
@@ -36,3 +36,5 @@ Final review moved the attempt limit into the shared recovery function so health
 ## Consequences
 
 Updated the script, systemd state/log directories and installer restart behavior. The currently running watchdog is still the old version; inference has not been restarted.
+
+Deployment update: committed as `2367484`, pushed from mbp, pulled on vllm and installed with `bash watchdog/install.sh`. All five checks passed again before installation. The unit became active at 2026-09-08 01:13:19 UTC, bootstrapped a 500-line snapshot in `/var/lib/xpu-wedge-watchdog/kernel.snapshot`, and is enabled for boot. The installed script matches the repository copy. Qwen remained healthy with its original `StartedAt=2026-09-08T00:31:21.980018882Z`. No new physical GPU failure has occurred to validate real recovery; the tests exercise detection and control flow with a temporary HTTP server.

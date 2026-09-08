@@ -6,7 +6,7 @@ independent and repeatable. Pass or fail comes from the task's verify.sh, never
 from reading the model's prose.
 
   ./run.py --model llm-server/qwen38
-  ./run.py --model llm-server/qwen38 --tasks 02,08 --out results/2026-09-07-baseline
+  ./run.py --client pi --model llm-server/qwen38 --tasks 02,08
 """
 from __future__ import annotations
 
@@ -32,7 +32,8 @@ def discover(selector: str | None) -> list[Path]:
     return [t for t in tasks if t.name.split("-")[0] in wanted or t.name in wanted]
 
 
-def run_task(task: Path, model: str, timeout: int, keep: bool) -> dict:
+def run_task(task: Path, model: str, timeout: int, keep: bool,
+             client: str, thinking: str) -> dict:
     workdir = Path(tempfile.mkdtemp(prefix=f"eval-{task.name}-"))
     shutil.copytree(task / "fixture", workdir, dirs_exist_ok=True)
 
@@ -43,7 +44,8 @@ def run_task(task: Path, model: str, timeout: int, keep: bool) -> dict:
 
     prompt = (task / "prompt.md").read_text().strip()
     screenshot = task / "screenshot.png"
-    if screenshot.exists() and not os.environ.get("EVAL_CLIENT_SENDS_IMAGES"):
+    if (client == "opencode" and screenshot.exists()
+            and not os.environ.get("EVAL_CLIENT_SENDS_IMAGES")):
         # opencode 1.18.27 attaches images with mime text/plain, so the model never
         # receives an image and the task measures the client, not the model. Score
         # vision with eval/vision_check.py against the API instead. Set
@@ -56,18 +58,27 @@ def run_task(task: Path, model: str, timeout: int, keep: bool) -> dict:
             "workdir": None,
         }, "skipped: client cannot attach images"
 
-    cmd = ["opencode", "run", "--dir", str(workdir), "-m", model, "--auto",
-           "--title", f"eval {task.name}"]
-    if screenshot.exists():
-        # --file is a greedy array option: "-f path prompt" swallows the prompt as a
-        # second filename and fails with "File not found". The = form takes one value.
-        cmd += [f"--file={screenshot}"]
-    cmd += [prompt]
+    if client == "opencode":
+        cmd = ["opencode", "run", "--dir", str(workdir), "-m", model, "--auto",
+               "--title", f"eval {task.name}"]
+        if screenshot.exists():
+            # --file is a greedy array option: "-f path prompt" swallows the prompt as a
+            # second filename and fails with "File not found". The = form takes one value.
+            cmd += [f"--file={screenshot}"]
+        cmd += [prompt]
+    else:
+        cmd = ["pi", "--no-session", "--approve", "--model", model,
+               "--thinking", thinking, "--mode", "json", "--tools",
+               "read,bash,edit,write,grep,find,ls", "-p"]
+        if screenshot.exists():
+            cmd += [f"@{screenshot}"]
+        cmd += [prompt]
 
     started = time.monotonic()
     timed_out = False
     try:
-        agent = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        agent = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True,
+                               timeout=timeout)
         agent_out = agent.stdout + agent.stderr
     except subprocess.TimeoutExpired as exc:
         timed_out = True
@@ -96,7 +107,9 @@ def run_task(task: Path, model: str, timeout: int, keep: bool) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--client", choices=("opencode", "pi"), default="opencode")
     ap.add_argument("--model", required=True, help="opencode provider/model")
+    ap.add_argument("--thinking", default="xhigh", help="Pi thinking level")
     ap.add_argument("--tasks", help="comma separated task numbers, default all")
     ap.add_argument("--out", help="directory for results, default eval/results/<timestamp>")
     ap.add_argument("--timeout", type=int, default=3600, help="seconds per task")
@@ -114,14 +127,16 @@ def main() -> int:
     results = []
     for task in tasks:
         print(f"--- {task.name}", flush=True)
-        result, agent_out = run_task(task, a.model, a.timeout, a.keep)
+        result, agent_out = run_task(task, a.model, a.timeout, a.keep,
+                                     a.client, a.thinking)
         (out / f"{task.name}.log").write_text(agent_out)
         results.append(result)
         print(f"    {result['status']} in {result['seconds']}s", flush=True)
 
     passed = sum(r["status"] == "pass" for r in results)
     scored = sum(r["status"] != "skip" for r in results)
-    summary = {"model": a.model, "when": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+    summary = {"client": a.client, "model": a.model, "thinking": a.thinking,
+               "when": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
                "passed": passed, "scored": scored, "results": results}
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
 
