@@ -10,7 +10,7 @@ cold measurement into a warm one. Pass --warm to measure the cached path instead
 Usage:
   ./bench.py --base-url http://vllm:8000 --key "$API_KEY" --prompt-tokens 512 --gen 128 -n 5
 """
-import argparse, json, statistics, time, urllib.request, uuid, sys, re
+import argparse, json, os, statistics, time, urllib.request, uuid, sys, re
 from pathlib import Path
 
 def post_stream(url, key, body, timeout=1800):
@@ -23,6 +23,7 @@ def post_stream(url, key, body, timeout=1800):
     ttft = None
     chunks = 0
     completion_tokens = None
+    prompt_tokens = None
     with urllib.request.urlopen(req, timeout=timeout) as r:
         for raw in r:
             line = raw.decode().strip()
@@ -34,6 +35,7 @@ def post_stream(url, key, body, timeout=1800):
             chunk = json.loads(payload)
             if chunk.get("usage"):
                 completion_tokens = chunk["usage"].get("completion_tokens")
+                prompt_tokens = chunk["usage"].get("prompt_tokens")
             if not chunk.get("choices"):
                 continue
             delta = chunk["choices"][0].get("delta", {})
@@ -45,7 +47,7 @@ def post_stream(url, key, body, timeout=1800):
     # Speculative decoding can carry several tokens in one stream chunk, so counting
     # chunks understates the rate. Trust the server's own usage count when present.
     ntok = completion_tokens if completion_tokens else chunks
-    return ttft, ntok, total
+    return ttft, ntok, total, prompt_tokens
 
 def metrics(url, key):
     """Scrape MTP acceptance from the Prometheus endpoint."""
@@ -105,7 +107,7 @@ def filler(n_tokens, kind="code"):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://127.0.0.1:8000")
-    ap.add_argument("--key", default="change-me")
+    ap.add_argument("--key", default=os.environ.get("LLM_SERVER_API_KEY", "change-me"))
     ap.add_argument("--model", default="qwen38")
     ap.add_argument("--prompt-tokens", type=int, default=512)
     ap.add_argument("--gen", type=int, default=128)
@@ -131,20 +133,23 @@ def main():
             "stream_options": {"include_usage": True},
             "temperature": 1.0 if a.thinking else 0.7,
             "top_p": 0.95 if a.thinking else 0.8,
-            # Qwen's recommended top_k. Omitting it widens the sampling distribution
-            # and measurably lowers speculative acceptance.
+            # Make Qwen's thinking preset explicit. The current server already
+            # defaults to top_k=20 through its generation_config.json.
             "top_k": a.top_k,
             "chat_template_kwargs": {"enable_thinking": bool(a.thinking)},
         }
-        ttft, ntok, total = post_stream(a.base_url, a.key, body)
+        ttft, ntok, total, prompt_tokens = post_stream(a.base_url, a.key, body)
         if i == 0:
             continue
         if ttft is None or ntok < 2:
             print(f"rep {i}: no tokens returned", file=sys.stderr); continue
+        if prompt_tokens is None:
+            raise SystemExit("Server omitted usage.prompt_tokens; cannot measure prefill rate")
         rows.append({
+            "prompt_tokens": prompt_tokens,
             "ttft_s": ttft,
             "decode_tok_s": (ntok - 1) / (total - ttft) if total > ttft else 0.0,
-            "prefill_tok_s": a.prompt_tokens / ttft,
+            "prefill_tok_s": prompt_tokens / ttft,
             "gen_tokens": ntok,
         })
         print(f"rep {i}: ttft {ttft:.2f}s  decode {rows[-1]['decode_tok_s']:.1f} tok/s")
@@ -158,7 +163,8 @@ def main():
 
     med = lambda k: statistics.median(r[k] for r in rows)
     result = {
-        "prompt_tokens": a.prompt_tokens, "gen": a.gen, "n": len(rows),
+        "prompt_tokens": med("prompt_tokens"), "prompt_tokens_target": a.prompt_tokens,
+        "concurrency": 1, "gen": a.gen, "n": len(rows),
         "corpus": a.corpus, "top_k": a.top_k,
         "thinking": a.thinking, "prefix_cache_path": "warm" if a.warm else "cold",
         "ttft_s_median": round(med("ttft_s"), 3),
