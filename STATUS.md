@@ -54,7 +54,7 @@ Defined in `compose/.env` on the server, template in `compose/.env.example`. The
 
 Ideas not yet tested. Move one into `docs/log/` the moment you test it.
 
-- Is the pegged engine thread the limiter? Decode sits about 30% below the bandwidth ceiling. Worth testing a `performance` governor and CPU pinning before concluding anything.
+- Is the pegged engine thread the limiter? Decode sits about 30% below the bandwidth ceiling. The `performance` governor changes nothing, because boost already holds cores at 4.34 GHz under load. CPU pinning is set up and verified working but was never measured. [governor and pinning](docs/log/2026-09-07-cpu-governor-and-pinning.md)
 - The cookbook's optional INT4 draft overlay claims decode from 83.7 to 112.7 tok/s. Untested here, and it changes draft logits, so it needs the task suite run alongside it.
 - Does prefix caching help or hurt? Three repetitions was too noisy to tell and the comparison came out both ways. Needs a deterministic harness and a realistic multi-turn prompt, which is the case prefix caching exists for.
 - What does `xhigh` reasoning effort buy over `medium` on the task suite, and at what wall-clock cost?
