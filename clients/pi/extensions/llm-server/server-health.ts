@@ -96,7 +96,7 @@ export default function serverHealth(pi: ExtensionAPI) {
 			const remote =
 				sub === "logs"
 					? `docker logs --tail ${Number(count) || 40} qwen38 2>&1`
-					: "docker ps -a --filter name=qwen38 --format '{{.Names}}  {{.Status}}  {{.Image}}'; docker logs --tail 5 qwen38 2>&1";
+					: "docker ps -a --filter name=qwen38 --filter name=searxng --format '{{.Names}}  {{.Status}}  {{.Image}}'; docker logs --tail 5 qwen38 2>&1";
 			const result = await pi.exec("ssh", ["-o", "BatchMode=yes", "-o", "ConnectTimeout=5", host, remote], { timeout: 20_000 });
 			const output = (result.stdout || result.stderr || "").trimEnd();
 			lines.push(...(output ? output.split("\n") : [`ssh ${host}: no output (exit ${result.code})`]));

@@ -12,6 +12,7 @@ mkdir -p ~/.pi/agent/extensions
 cp clients/pi/models.json ~/.pi/agent/models.json
 cp clients/pi/settings.json ~/.pi/agent/settings.json
 ln -sfn "$PWD/clients/pi/extensions/llm-server" ~/.pi/agent/extensions/llm-server
+(cd clients/pi/extensions/llm-server && npm install)
 test -n "$LLM_SERVER_API_KEY"
 pi --list-models qwen38
 ```
@@ -45,7 +46,7 @@ Keep the thinking level at xhigh for normal work. In the checked conversation, c
 
 ## The llm-server extension
 
-`clients/pi/extensions/llm-server/` is one Pi extension in seven modules. Everything it does follows from measurements in `docs/log/`: prefix reuse is worth 12 seconds per request at 23K tokens, the window is small, and the server is a single box that sometimes goes away.
+`clients/pi/extensions/llm-server/` is one Pi extension in eight modules. Everything it does follows from measurements in `docs/log/`: prefix reuse is worth 12 seconds per request at 23K tokens, the window is small, and the server is a single box that sometimes goes away.
 
 - **Request numbers in the footer.** After every response the status line shows time to first token, the share of the prompt served from vLLM's prefix cache, and how many tokens remain before automatic compaction. A prompt of 8K tokens or more that hits the cache below 50% raises a warning with the cold-prefill time. The cache share needs vLLM started with `--enable-prompt-tokens-details`, which the compose file passes; without it the line shows the prompt size only.
 - **Warm-up after compaction.** `session_compact` fires, and once Pi is idle the extension sends the compacted context with `max_tokens` 1 so vLLM prefills it while you type. `/warm` does the same by hand. The next real request is compared with the warm-up payload and a mismatch is reported, so a silent cache miss cannot hide. Measured effect is in [the log entry](../../docs/log/2026-09-07-pi-quality-of-life.md).
@@ -53,6 +54,7 @@ Keep the thinking level at xhigh for normal work. In the checked conversation, c
 - **Server diagnosis.** A request that ends in an error triggers a `/health` check. If the engine answers, the message says the error was request-level. If not, the extension watches `/health` every 10 seconds for up to 15 minutes and says when it is back. `/vllm` shows health plus the container state over SSH; `/vllm logs 60` tails the engine log. Output appears in the transcript and is not sent to the model.
 - **Notification.** A run longer than 15 seconds posts a macOS notification when Pi is waiting for input.
 - **Handoff.** `/handoff <goal>` is Pi's example handoff extension unchanged: it writes a focused prompt from the current conversation and opens a new session with it in the editor. Prefer it over `/compact` when switching tasks; the new session prefills in a second or two instead of 12.
+- **Web search and fetch without keys.** `web_search` queries the SearXNG container on `vllm` (`compose/docker-compose.yml`, service `searxng`, JSON on port 8080 over Tailscale) and returns numbered results with title, URL, snippet and the engines that agreed. `web_fetch` downloads a page, reduces it to its article with Readability, converts it to markdown with absolute links, and returns text, JSON and markdown bodies as-is; GitHub blob URLs are rewritten to the raw file. Both outputs share the 24 KB budget. `SEARXNG_URL` overrides the endpoint. The two npm dependencies live in the extension's own `package.json`, hence the `npm install` in the install steps. SearXNG runs without a rate limiter because it is single-user behind Tailscale; upstream engines occasionally refuse a query, and the result list shows which engines answered.
 - **Tool output budget.** `read` and `bash` results are cut to 24 KB or 600 lines instead of Pi's 50 KB or 2000. `read` keeps the head and tells the model to page with offset and limit; `bash` keeps the tail. Override with `PI_TOOL_BUDGET_KB` and `PI_TOOL_BUDGET_LINES`.
 
 Set `PI_LLM_SERVER_LOG=/path/file.jsonl` to have the extension append one JSON line per response and warm-up with token counts and timings. It never records prompt text. `eval/pi_warmup.py` uses this to measure the warm-up.

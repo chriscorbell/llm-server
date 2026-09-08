@@ -1,0 +1,11 @@
+{
+  "name": "pi-extension-llm-server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@mozilla/readability": "0.6.0",
+    "linkedom": "0.18.12",
+    "turndown": "7.2.2"
+  }
+}
