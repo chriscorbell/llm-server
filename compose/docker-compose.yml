@@ -63,6 +63,31 @@ x-b70-common: &b70-common
       max-file: "5"
 
 services:
+  # Self-hosted metasearch for Pi's web_search tool. No profile, so it runs
+  # alongside whichever engine Profile is up. JSON at ${BIND_ADDR}:${SEARXNG_PORT}/search?format=json.
+  searxng:
+    image: ${SEARXNG_IMAGE}
+    container_name: searxng
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDR}:${SEARXNG_PORT:-8080}:8080"
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET}
+      SEARXNG_BASE_URL: http://${BIND_ADDR}:${SEARXNG_PORT:-8080}/
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+
   # Rollback arm without the draft overlay. Historical profile name says BF16; with dtype float16 and KV auto,
   # the attention cache is FP16. Vision on. MTP4. Single sequence.
   vllm-a-bf16kv:

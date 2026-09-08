@@ -1,0 +1,25 @@
+# SearXNG for the Pi web_search tool. Everything not listed here comes from the
+# image's default settings.yml. Secret, port and bind address arrive as
+# SEARXNG_* environment variables from docker-compose.yml.
+use_default_settings: true
+
+general:
+  instance_name: "llm-server search"
+  enable_metrics: false
+
+search:
+  # json is what clients/pi/extensions/llm-server/web.ts reads; html keeps the UI usable in a browser.
+  formats:
+    - html
+    - json
+  safe_search: 0
+  autocomplete: ""
+
+server:
+  # Single user behind Tailscale. The rate limiter needs Valkey and would only throttle us.
+  limiter: false
+  public_instance: false
+  image_proxy: false
+
+ui:
+  static_use_hash: true
