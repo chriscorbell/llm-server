@@ -21,7 +21,7 @@ echo "=== $LABEL"
 echo "    profile=$PROFILE overrides=${OVERRIDES:-none}"
 
 ssh -o BatchMode=yes "$HOST" "cd ~/Code/llm-server/compose && \
-  docker compose --profile a-bf16kv --profile a-fp8kv --profile a-nospec down >/dev/null 2>&1; \
+  docker compose --profile a-int4draft --profile a-bf16kv --profile a-fp8kv --profile a-nospec down >/dev/null 2>&1; \
   env $OVERRIDES docker compose --profile $PROFILE up -d >/dev/null 2>&1" || {
     echo "    FAILED to start"; exit 1; }
 

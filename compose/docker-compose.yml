@@ -1,9 +1,9 @@
 # Qwen3.8-27B on one Intel Arc Pro B70. See ../STATUS.md for what is current.
 #
 # One Profile runs at a time; the GPU holds one model.
-#   docker compose --profile a-bf16kv up -d
+#   docker compose --profile a-int4draft up -d   # daily driver
+#   docker compose --profile a-bf16kv up -d      # rollback, no draft overlay
 #   docker compose --profile a-fp8kv  up -d
-#   docker compose --profile a-int4draft up -d
 #
 # Every tunable lives in .env so that a Profile difference is a one-line diff in a log entry.
 
@@ -63,7 +63,7 @@ x-b70-common: &b70-common
       max-file: "5"
 
 services:
-  # Baseline. Historical profile name says BF16; with dtype float16 and KV auto,
+  # Rollback arm without the draft overlay. Historical profile name says BF16; with dtype float16 and KV auto,
   # the attention cache is FP16. Vision on. MTP4. Single sequence.
   vllm-a-bf16kv:
     <<: *b70-common
@@ -90,7 +90,7 @@ services:
         --speculative-config '{"method":"mtp","num_speculative_tokens":${MTP_TOKENS}}'
         --port 8000
 
-  # Experiment arm. Same as a-bf16kv plus the upstream INT4 draft overlay: the
+  # Daily driver. Same as a-bf16kv plus the upstream INT4 draft overlay: the
   # draft's LM head copy and its five MTP linears are requantized to INT4 at load.
   # The target model and its verification head are untouched. Single card only;
   # the patches refuse to run under tensor parallelism.

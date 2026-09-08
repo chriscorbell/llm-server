@@ -28,7 +28,7 @@ ssh vllm 'bash -s' < scripts/setup-server.sh
 Then copy `compose/.env.example` to `compose/.env`, fill in the render group id and an API key, and start one Profile:
 
 ```bash
-ssh vllm 'cd ~/Code/llm-server/compose && docker compose --profile a-bf16kv up -d'
+ssh vllm 'cd ~/Code/llm-server/compose && docker compose --profile a-int4draft up -d'
 ```
 
 First start takes several minutes while the engine compiles kernels. Watch it with `docker logs -f qwen38`.
