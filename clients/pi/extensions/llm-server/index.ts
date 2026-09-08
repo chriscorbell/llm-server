@@ -3,6 +3,7 @@
 // here for web.ts's dependencies; see clients/pi/README.md.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import cacheWarmup from "./cache-warmup.ts";
+import contextNotes from "./context-notes.ts";
 import handoff from "./handoff.ts";
 import notify from "./notify.ts";
 import requestStats from "./request-stats.ts";
@@ -20,4 +21,5 @@ export default function (pi: ExtensionAPI) {
 	handoff(pi);
 	toolOutputBudget(pi);
 	web(pi);
+	contextNotes(pi);
 }

@@ -112,6 +112,10 @@ export default function web(pi: ExtensionAPI) {
 		name: "web_search",
 		label: "Web search",
 		description: `Search the web through the private SearXNG instance on ${SEARXNG_URL} (no API key, no quota). Returns ranked results with title, URL and snippet. Follow up with web_fetch on a result URL to read the page.`,
+		promptSnippet: "Search the web (SearXNG, no key needed); returns titles, URLs and snippets",
+		promptGuidelines: [
+			"Use web_search for anything that depends on a version, a date, an API surface or an exact error message instead of answering from memory; then read the page with web_fetch before citing it",
+		],
 		parameters: Type.Object({
 			query: Type.String({ description: "Search query. Use specific terms, version numbers and error text; quote exact phrases." }),
 			max_results: Type.Optional(Type.Integer({ minimum: 1, maximum: 20, description: "Results to return, default 8" })),
@@ -178,6 +182,8 @@ export default function web(pi: ExtensionAPI) {
 		name: "web_fetch",
 		label: "Web fetch",
 		description: `Fetch a URL and return its main content as markdown (HTML is reduced with Readability; text, JSON and markdown come back as-is; GitHub blob URLs are fetched raw). Output is cut to ${formatSize(MAX_BYTES)} or ${MAX_LINES} lines, so fetch specific pages rather than index pages. PDFs and binaries are not supported.`,
+		promptSnippet: "Fetch a URL as markdown (article text, GitHub files raw)",
+		promptGuidelines: ["Use web_fetch on a specific page, not a site index; its output is capped, so pick the page that holds the answer"],
 		parameters: Type.Object({
 			url: Type.String({ description: "Absolute http(s) URL" }),
 		}),

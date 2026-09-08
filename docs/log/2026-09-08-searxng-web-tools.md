@@ -50,3 +50,5 @@ Confirmed. Search and fetch work without keys, search answers in under a second,
 ## Consequences
 
 `searxng` runs on `vllm` and is part of every `docker compose up`. `compose/.env.example` documents `SEARXNG_IMAGE`, `SEARXNG_PORT` and `SEARXNG_SECRET`. The extension gains two tools and a `package.json`; the install steps in `clients/pi/README.md` add `npm install`. `/vllm` now lists the searxng container. STATUS.md's Pi paragraph links here.
+
+Added afterwards on the same day: `promptSnippet` and `promptGuidelines` on both web tools and a static "Server constraints" block appended by `context-notes.ts` through `before_agent_start`. Measured on an empty project with no context files, first request of a session: 3,975 prompt tokens before, 4,221 after, so 246 tokens per session that then live in the cached prefix. Without `promptSnippet` an extension tool is absent from the "Available tools" list in the system prompt and only appears in the API tool array, which is worth knowing when a model claims it has no such tool.
