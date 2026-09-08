@@ -3,6 +3,8 @@
 # long prompt. Run from mbp or on the server. Exits non-zero on the first failure.
 set -uo pipefail
 
+# The server publishes on the Tailscale address only, so http://127.0.0.1:8000 does not
+# work even when run on the server itself. Use the hostname from either machine.
 BASE="${BASE_URL:-http://vllm:8000}"
 KEY="${API_KEY:?set API_KEY}"
 MODEL="${SERVED_NAME:-qwen38}"

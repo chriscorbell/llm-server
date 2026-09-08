@@ -62,6 +62,15 @@ Ideas not yet tested. Move one into `docs/log/` the moment you test it.
 - The optional INT4 draft overlay raises decode from 83.7 to 112.7 tok/s but changes draft logits. Off, and staying off until the baseline is characterized.
 - Intel's `llm-scaler-vllm` image would remove the need for vendored patches once it lists Qwen3.8. Re-check at each release.
 
+## Setup gotchas
+
+These break a fresh install and are handled by `scripts/setup-server.sh`. Recorded because each one cost time. [setup gaps](docs/log/2026-09-07-setup-script-gaps.md)
+
+- Ubuntu 26.04 ships Docker without the Compose plugin. Install `docker-compose-v2` or every command fails with `docker: unknown command: docker compose`.
+- The API is published on the Tailscale address only, so `http://127.0.0.1:8000` does not answer even on the server itself. Use the hostname.
+- The `huggingface_hub` 1.x package dropped the `[cli]` extra and its entry point is not on `PATH` for a mapped container uid. Download through the Python API, which is what the setup script does.
+- The checkpoint ships only `processor_config.json`, not the three image-processor files the upstream cookbook lists. Vision works with just that one.
+
 ## Known hazards on this hardware
 
 - The `xe` driver can reset a compute engine under sustained load and wedge the context. Capture `scripts/gpu-health.sh` output before restarting anything.

@@ -7,6 +7,17 @@ MODEL_REPO=SergiioB/Qwen3.8-27B-GPTQ-Int4-sym-G128-MTP-BF16
 MODEL_REV=9d189a60e4c0ad7f9f47cd94bfa393ca10b3924e
 MODEL_DIR="$HOME/models/Qwen3.8-27B-GPTQ-Int4-sym-G128-MTP-BF16"
 
+echo "== docker compose plugin"
+# Ubuntu 26.04's docker packaging does not pull in the Compose plugin, and without it
+# every command here fails with: docker: unknown command: docker compose
+if docker compose version >/dev/null 2>&1; then
+  echo "  ok $(docker compose version)"
+else
+  echo "  installing docker-compose-v2"
+  sudo apt-get install -y -q docker-compose-v2
+  docker compose version
+fi
+
 echo "== render group id (put this in compose/.env as RENDER_GID)"
 stat -c '%g' /dev/dri/render* | sort -u | head -1
 
@@ -34,10 +45,18 @@ docker run --rm --user "$(id -u):$(id -g)" \
   python:3.12-slim \
   sh -lc 'pip -q install --no-cache-dir huggingface_hub && python /dl.py'
 
-echo "== image-processor configs, without which vision serving dies at startup"
-for f in preprocessor_config.json processor_config.json video_preprocessor_config.json; do
-  if [ -s "$MODEL_DIR/$f" ]; then echo "  ok $f"; else echo "  MISSING $f"; exit 1; fi
-done
+echo "== image-processor config"
+# The upstream cookbook warns that vision serving dies without preprocessor_config.json,
+# processor_config.json and video_preprocessor_config.json. At revision 9d189a60 the repo
+# ships only processor_config.json, and vision works: verified end to end by
+# eval/vision_check.py. So only that one is required here. A re-pack that drops it would
+# fail at startup with: OSError: Can't load image processor for '/model'
+if [ -s "$MODEL_DIR/processor_config.json" ]; then
+  echo "  ok processor_config.json"
+else
+  echo "  MISSING processor_config.json; vision serving will not start"
+  exit 1
+fi
 
 echo "== the fifteen MTP tensors must still be present and unquantized"
 python3 - "$MODEL_DIR" <<'PY'
