@@ -1,6 +1,6 @@
 # llm-server
 
-Cookbook for `vllm`, a single-GPU inference server that hosts Qwen3.8-27B on an Intel Arc Pro B70 for agentic coding from a MacBook.
+Cookbook for a single-GPU inference server that hosts Qwen3.8-27B on an Intel Arc Pro B70 for agentic coding from a MacBook.
 
 The goal is model quality first, then usable context, then decode speed, for one user at a time. This repository holds the configuration that achieves that, the measurements that justify it, and the record of everything that failed on the way.
 
@@ -22,13 +22,13 @@ Threadripper 3970X, 64 GB DDR4, one Intel Arc Pro B70 with 32 GB GDDR6, Ubuntu S
 On the server, once:
 
 ```bash
-ssh vllm 'bash -s' < scripts/setup-server.sh
+ssh <hostname> 'bash -s' < scripts/setup-server.sh
 ```
 
 Then copy `compose/.env.example` to `compose/.env`, fill in the render group id and an API key, and start one Profile:
 
 ```bash
-ssh vllm 'cd ~/Code/llm-server/compose && docker compose --profile a-int4draft up -d'
+ssh <hostname> 'cd ~/Code/llm-server/compose && docker compose --profile a-int4draft up -d'
 ```
 
 First start takes several minutes while the engine compiles kernels. Watch it with `docker logs -f qwen38`.
