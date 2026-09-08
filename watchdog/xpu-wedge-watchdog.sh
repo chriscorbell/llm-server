@@ -33,9 +33,12 @@
 #   SCAN_INTERVAL_S   seconds between scans in --loop (default 10)
 #   HEALTH_TIMEOUT_S  curl timeout per check           (default 5)
 #   FAIL_STREAK       failed checks before acting      (default 3)
-#   RECOVERY_TIMEOUT_S max seconds to wait for health  (default 180)
+#   RECOVERY_TIMEOUT_S max seconds to wait for health  (default 600)
+#   MAX_RECOVERY_ATTEMPTS restarts allowed per incident (default 2)
 #   TRIGGER_MODE      both|kernel|health              (default both)
 #   KMSG_SOURCE       auto|journal|dmesg|file:/path    (default auto)
+#   STATE_FILE        persisted kernel snapshot        (default /tmp/...)
+#   DIAGNOSTICS_DIR   pre-restart evidence directory   (default /tmp/...)
 #   WEBHOOK_URL       optional notification endpoint   (default empty)
 #
 # Exit codes: 0 ok/recovered, 2 no usable kernel-log source, 3 recovery failed.
@@ -50,25 +53,32 @@ RECOVERY_CMD="${RECOVERY_CMD:-docker restart "$CONTAINER"}"
 SCAN_INTERVAL_S="${SCAN_INTERVAL_S:-10}"
 HEALTH_TIMEOUT_S="${HEALTH_TIMEOUT_S:-5}"
 FAIL_STREAK="${FAIL_STREAK:-3}"
-RECOVERY_TIMEOUT_S="${RECOVERY_TIMEOUT_S:-180}"
+RECOVERY_TIMEOUT_S="${RECOVERY_TIMEOUT_S:-600}"
+MAX_RECOVERY_ATTEMPTS="${MAX_RECOVERY_ATTEMPTS:-2}"
 TRIGGER_MODE="${TRIGGER_MODE:-both}"          # both | kernel | health
 KMSG_SOURCE="${KMSG_SOURCE:-auto}"            # auto | journal | dmesg | file:/path
 STATE_FILE="${STATE_FILE:-/tmp/xpu-wedge-watchdog.state}"
+FAULT_FILE="${FAULT_FILE:-${STATE_FILE}.fault}"
+STREAK_FILE="${STREAK_FILE:-${STATE_FILE}.streak}"
+ATTEMPTS_FILE="${ATTEMPTS_FILE:-${STATE_FILE}.attempts}"
+DIAGNOSTICS_DIR="${DIAGNOSTICS_DIR:-/tmp/xpu-wedge-watchdog-diagnostics}"
 WEBHOOK_URL="${WEBHOOK_URL:-}"
 
 # Kernel signatures that correlate with the L0 wedge (see issues above).
-# Multi-line pattern: newlines act as alternation for grep -E.
+# grep treats each line as an independent pattern. A leading `|` would create an
+# empty alternative and match every kernel line, so each line starts with text.
 SIGNATURES='Engine reset: engine_class=(ccs|bcs)
-|Fault response: Unsuccessful
-|trying reset from guc_exec_queue_timedout_job
-|TLB invalidation fence timeout
-|Completion-Wait loop timed out'
+Fault response: Unsuccessful
+trying reset from guc_exec_queue_timedout_job
+TLB invalidation fence timeout
+Completion-Wait loop timed out'
 
 SNAPSHOT_TAIL=500
 SELF="$(readlink -f "$0")"
 
 # ---- State -----------------------------------------------------------------
-STREAK=0          # consecutive failed health checks
+STREAK=0                 # consecutive failed health checks
+RECOVERY_ATTEMPTS=0      # restarts attempted during the current incident
 
 # ---- Logging ----------------------------------------------------------------
 stamp() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
@@ -80,6 +90,27 @@ notify() {
     -H "Content-Type: application/json" \
     -d "{\"text\": \"$(printf '%s' "$*" | sed 's/"/\\"/g')\"}" "$WEBHOOK_URL" \
     >/dev/null 2>&1 || true
+}
+
+read_counter() {
+  local file="$1" value=0
+  [ -r "$file" ] && value="$(cat "$file" 2>/dev/null || true)"
+  case "$value" in
+    ''|*[!0-9]*) value=0 ;;
+  esac
+  printf '%s\n' "$value"
+}
+
+save_incident_state() {
+  printf '%s\n' "$STREAK" > "$STREAK_FILE"
+  printf '%s\n' "$RECOVERY_ATTEMPTS" > "$ATTEMPTS_FILE"
+}
+
+reset_incident() {
+  STREAK=0
+  RECOVERY_ATTEMPTS=0
+  save_incident_state
+  rm -f "$FAULT_FILE"
 }
 
 # ---- Health check ------------------------------------------------------------
@@ -99,12 +130,12 @@ kernel_snapshot() {
   case "$src" in
     auto)
       if command -v journalctl >/dev/null 2>&1 && journalctl -k -n 1 >/dev/null 2>&1; then
-        journalctl -k -n "$SNAPSHOT_TAIL" -o cat 2>/dev/null | tail -n "$SNAPSHOT_TAIL"
+        journalctl -k -n "$SNAPSHOT_TAIL" -o short-monotonic 2>/dev/null | tail -n "$SNAPSHOT_TAIL"
       elif command -v dmesg >/dev/null 2>&1; then
         dmesg 2>/dev/null | tail -n "$SNAPSHOT_TAIL"
       fi
       ;;
-    journal) journalctl -k -n "$SNAPSHOT_TAIL" -o cat 2>/dev/null | tail -n "$SNAPSHOT_TAIL" ;;
+    journal) journalctl -k -n "$SNAPSHOT_TAIL" -o short-monotonic 2>/dev/null | tail -n "$SNAPSHOT_TAIL" ;;
     dmesg)   dmesg 2>/dev/null | tail -n "$SNAPSHOT_TAIL" ;;
     file:*)  file="${src#file:}"; [ -r "$file" ] && tail -n "$SNAPSHOT_TAIL" "$file" ;;
   esac
@@ -124,16 +155,51 @@ new_kernel_lines() {
 }
 
 # ---- Recovery ----------------------------------------------------------------
+capture_diagnostics() {
+  local stamp_id out
+  stamp_id="$(date -u +'%Y%m%dT%H%M%SZ')"
+  mkdir -p "$DIAGNOSTICS_DIR"
+  out="$DIAGNOSTICS_DIR/${stamp_id}.log"
+  {
+    printf 'captured_at=%s\n' "$(stamp)"
+    printf 'container=%s\n' "$CONTAINER"
+    printf 'health_url=%s\n' "$HEALTH_URL"
+    printf 'trigger=%s\n' "$(cat "$FAULT_FILE" 2>/dev/null || printf 'health-only')"
+    printf '\n== kernel snapshot ==\n'
+    kernel_snapshot
+    if command -v xpu-smi >/dev/null 2>&1; then
+      printf '\n== xpu-smi ==\n'
+      timeout 15 xpu-smi stats -d 0 2>&1 || true
+    fi
+    if command -v docker >/dev/null 2>&1; then
+      printf '\n== container state ==\n'
+      timeout 15 docker inspect "$CONTAINER" \
+        --format 'status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} started={{.State.StartedAt}} restarts={{.RestartCount}}' \
+        2>&1 || true
+      printf '\n== container logs ==\n'
+      timeout 15 docker logs --tail 300 "$CONTAINER" 2>&1 || true
+    fi
+  } > "$out" 2>&1
+  log "DIAGNOSTICS saved=${out}"
+}
+
 recover() {
-  log "RECOVERY run cmd='$RECOVERY_CMD'"
+  if [ "$RECOVERY_ATTEMPTS" -ge "$MAX_RECOVERY_ATTEMPTS" ]; then
+    log "RECOVERY_SUPPRESSED attempts=${RECOVERY_ATTEMPTS} max=${MAX_RECOVERY_ATTEMPTS} - manual check required"
+    return 0
+  fi
+  RECOVERY_ATTEMPTS=$((RECOVERY_ATTEMPTS + 1))
+  save_incident_state
+  capture_diagnostics
+  log "RECOVERY run attempt=${RECOVERY_ATTEMPTS}/${MAX_RECOVERY_ATTEMPTS} cmd='$RECOVERY_CMD'"
   notify "Xe2 watchdog: wedge detected, restarting ${CONTAINER} (${HEALTH_URL})"
-  eval "$RECOVERY_CMD" >/dev/null 2>&1
+  timeout 60 bash -c "$RECOVERY_CMD" >/dev/null 2>&1 || log "RECOVERY_COMMAND_FAILED (health verification follows)"
   local waited=0
   while [ "$waited" -lt "$RECOVERY_TIMEOUT_S" ]; do
     if is_healthy; then
       log "RECOVERED container=${CONTAINER} after=${waited}s"
       notify "Xe2 watchdog: ${CONTAINER} recovered after ${waited}s"
-      STREAK=0
+      reset_incident
       return 0
     fi
     sleep 5
@@ -146,7 +212,11 @@ recover() {
 
 # ---- One scan pass -------------------------------------------------------------
 run_once() {
-  local cur new sigs ret=0 state prev
+  local cur new sigs state prev pending
+
+  mkdir -p "$(dirname "$STATE_FILE")"
+  STREAK="$(read_counter "$STREAK_FILE")"
+  RECOVERY_ATTEMPTS="$(read_counter "$ATTEMPTS_FILE")"
 
   cur="$(kernel_snapshot)" || true
   # An empty snapshot is valid for file: sources (log not yet written) but
@@ -167,17 +237,21 @@ run_once() {
   prev="$(cat "$state" 2>/dev/null || true)"
   new="$(new_kernel_lines "$cur" "$prev")"
   printf '%s\n' "$cur" > "$state"
+  sigs="$(printf '%s\n' "$new" | grep -Ei "$SIGNATURES" || true)"
+  if [ -n "$sigs" ]; then
+    printf '%s\n' "$(printf '%s\n' "$sigs" | head -n1)" > "$FAULT_FILE"
+  fi
 
   if is_healthy; then
-    if [ "$STREAK" -ne 0 ]; then
-      log "HEALTH_OK restored"
-      STREAK=0
+    if [ "$STREAK" -ne 0 ] || [ "$RECOVERY_ATTEMPTS" -ne 0 ] || [ -e "$FAULT_FILE" ]; then
+      [ "$STREAK" -ne 0 ] && log "HEALTH_OK restored"
+      reset_incident
     fi
     return 0
   fi
 
   STREAK=$((STREAK + 1))
-  sigs="$(printf '%s\n' "$new" | grep -Ei "$SIGNATURES" || true)"
+  save_incident_state
   log "HEALTH_DOWN streak=${STREAK} new_kernel_lines=$(printf '%s\n' "$new" | wc -l | tr -d ' ')"
 
   [ "$STREAK" -ge "$FAIL_STREAK" ] || return 0
@@ -187,8 +261,9 @@ run_once() {
     recover; return $?
   fi
 
-  if [ -n "$sigs" ]; then
-    log "WEDGE trigger=kernel streak=${STREAK} first_match=$(printf '%s\n' "$sigs" | head -n1)"
+  pending="$(cat "$FAULT_FILE" 2>/dev/null || true)"
+  if [ -n "$pending" ]; then
+    log "WEDGE trigger=kernel streak=${STREAK} first_match=${pending}"
     recover; return $?
   fi
 
@@ -204,7 +279,7 @@ run_once() {
 
 # ---- Offline self-test -----------------------------------------------------------
 self_test() {
-  local tmp kmsg logf rc=0 sport srvpid
+  local tmp kmsg rc=0 sport recovery_script
   tmp="$(mktemp -d)"
   kmsg="$tmp/kmsg.log"; : > "$kmsg"
 
@@ -233,21 +308,86 @@ self_test() {
   pkill -f "http.server $sport" 2>/dev/null || true
   sleep 0.3
 
-  # 2) Wedge path: bootstrap on empty log, then inject signatures + kill health.
+  # 2) Unrelated kernel lines must not satisfy the GPU signature check, even
+  # after the health failure threshold is reached.
   : > "$kmsg"
-  HEALTH_URL="http://127.0.0.1:1/health" KMSG_SOURCE="file:$kmsg" STATE_FILE="$tmp/state-wedge" \
-    RECOVERY_CMD="echo would-restart" "$SELF" > "$tmp/w-1.log" 2>&1
-  printf '%s\n' \
-    'xe 0000:c7:00.0: [drm] Tile0: GT0: Engine reset: engine_class=ccs, logical_mask: 0x1, guc_id=23, state=0x289' \
-    'xe 0000:c7:00.0: [drm] Tile0: GT0: Fault response: Unsuccessful -ENOENT' >> "$kmsg"
-  HEALTH_URL="http://127.0.0.1:1/health" HEALTH_TIMEOUT_S=2 FAIL_STREAK=1 \
-    RECOVERY_TIMEOUT_S=10 KMSG_SOURCE="file:$kmsg" STATE_FILE="$tmp/state-wedge" \
-    RECOVERY_CMD="echo would-restart" \
-    "$SELF" > "$tmp/w-2.log" 2>&1
-  if grep -q "WEDGE" "$tmp/w-2.log" && grep -q "RECOVERY run" "$tmp/w-2.log"; then
-    log "SELFTEST ok: wedge triggers restart"
+  for i in 1 2 3 4; do
+    [ "$i" -eq 2 ] && printf '%s\n' 'veth88b9e4a: renamed from eth0' >> "$kmsg"
+    HEALTH_URL="http://127.0.0.1:1/health" HEALTH_TIMEOUT_S=1 FAIL_STREAK=3 \
+      KMSG_SOURCE="file:$kmsg" STATE_FILE="$tmp/state-unrelated" \
+      DIAGNOSTICS_DIR="$tmp/diag-unrelated" RECOVERY_CMD="touch $tmp/should-not-exist" \
+      "$SELF" >> "$tmp/unrelated.log" 2>&1
+  done
+  if [ ! -e "$tmp/should-not-exist" ] && ! grep -q 'WEDGE trigger=kernel' "$tmp/unrelated.log"; then
+    log "SELFTEST ok: unrelated kernel line cannot trigger recovery"
   else
-    log "SELFTEST FAIL: wedge path (w-2 below)"; sed -n '1,30p' "$tmp/w-2.log"; rc=1
+    log "SELFTEST FAIL: unrelated kernel line triggered recovery"
+    sed -n '1,30p' "$tmp/unrelated.log"; rc=1
+  fi
+
+  # 3) A one-time GPU fault must remain pending until the third failed health
+  # check, then trigger exactly one recovery and save diagnostics.
+  sport=$(( 22000 + RANDOM % 1000 ))
+  recovery_script="$tmp/recover.sh"
+  printf '%s\n' '#!/usr/bin/env bash' \
+    "touch '$tmp/recovered'" \
+    "cd '$tmp'" \
+    "python3 -m http.server '$sport' >'$tmp/recovery-http.log' 2>&1 &" \
+    > "$recovery_script"
+  chmod +x "$recovery_script"
+  : > "$kmsg"
+  HEALTH_URL="http://127.0.0.1:${sport}/" KMSG_SOURCE="file:$kmsg" STATE_FILE="$tmp/state-wedge" \
+    "$SELF" > "$tmp/wedge.log" 2>&1
+  printf '%s\n' \
+    'xe 0000:c7:00.0: [drm] Tile0: GT0: Fault response: Unsuccessful -ENOENT' >> "$kmsg"
+  for i in 1 2 3; do
+    HEALTH_URL="http://127.0.0.1:${sport}/" HEALTH_TIMEOUT_S=1 FAIL_STREAK=3 \
+      RECOVERY_TIMEOUT_S=10 KMSG_SOURCE="file:$kmsg" STATE_FILE="$tmp/state-wedge" \
+      DIAGNOSTICS_DIR="$tmp/diag-wedge" RECOVERY_CMD="$recovery_script" \
+      "$SELF" >> "$tmp/wedge.log" 2>&1
+  done
+  if [ -e "$tmp/recovered" ] \
+     && [ "$(grep -c 'RECOVERY run' "$tmp/wedge.log")" -eq 1 ] \
+     && [ "$(find "$tmp/diag-wedge" -type f 2>/dev/null | wc -l | tr -d ' ')" -eq 1 ]; then
+    log "SELFTEST ok: pending GPU fault triggers one recovery at threshold"
+  else
+    log "SELFTEST FAIL: pending GPU fault recovery path"
+    sed -n '1,50p' "$tmp/wedge.log"; rc=1
+  fi
+  pkill -f "http.server $sport" 2>/dev/null || true
+
+  # 4) A failed recovery must stop at the configured attempt limit instead of
+  # restarting forever and repeatedly interrupting model initialization.
+  : > "$kmsg"
+  HEALTH_URL="http://127.0.0.1:1/health" KMSG_SOURCE="file:$kmsg" STATE_FILE="$tmp/state-limit" \
+    "$SELF" > "$tmp/limit.log" 2>&1
+  printf '%s\n' \
+    'xe 0000:c7:00.0: [drm] Tile0: GT0: Engine reset: engine_class=ccs, logical_mask: 0x1' >> "$kmsg"
+  for i in 1 2 3 4; do
+    HEALTH_URL="http://127.0.0.1:1/health" HEALTH_TIMEOUT_S=1 FAIL_STREAK=3 \
+      RECOVERY_TIMEOUT_S=1 MAX_RECOVERY_ATTEMPTS=1 KMSG_SOURCE="file:$kmsg" \
+      STATE_FILE="$tmp/state-limit" DIAGNOSTICS_DIR="$tmp/diag-limit" \
+      RECOVERY_CMD="touch $tmp/limited-attempt" \
+      "$SELF" >> "$tmp/limit.log" 2>&1
+  done
+  if [ "$(grep -c 'RECOVERY run' "$tmp/limit.log")" -eq 1 ] \
+     && grep -q 'RECOVERY_SUPPRESSED attempts=1 max=1' "$tmp/limit.log"; then
+    log "SELFTEST ok: recovery attempts stop at the configured limit"
+  else
+    log "SELFTEST FAIL: recovery attempt limit"
+    sed -n '1,60p' "$tmp/limit.log"; rc=1
+  fi
+
+  # The same limit must apply if an operator selects health-only recovery.
+  HEALTH_URL="http://127.0.0.1:1/health" TRIGGER_MODE=health MAX_RECOVERY_ATTEMPTS=1 \
+    KMSG_SOURCE="file:$kmsg" STATE_FILE="$tmp/state-limit" \
+    RECOVERY_CMD="touch $tmp/health-should-not-restart" \
+    "$SELF" > "$tmp/health-limit.log" 2>&1
+  if [ ! -e "$tmp/health-should-not-restart" ] \
+     && grep -q 'RECOVERY_SUPPRESSED' "$tmp/health-limit.log"; then
+    log "SELFTEST ok: health-only mode honors the recovery limit"
+  else
+    log "SELFTEST FAIL: health-only mode ignored recovery limit"; rc=1
   fi
 
   rm -rf "$tmp"

@@ -26,8 +26,11 @@ Environment=CONTAINER=qwen38
 Environment=SCAN_INTERVAL_S=10
 Environment=HEALTH_TIMEOUT_S=5
 Environment=FAIL_STREAK=3
-Environment=RECOVERY_TIMEOUT_S=180
+Environment=RECOVERY_TIMEOUT_S=600
+Environment=MAX_RECOVERY_ATTEMPTS=2
 Environment=TRIGGER_MODE=both
+Environment=STATE_FILE=/var/lib/xpu-wedge-watchdog/kernel.snapshot
+Environment=DIAGNOSTICS_DIR=/var/log/xpu-wedge-watchdog
 # Environment=KMSG_SOURCE=dmesg            # uncomment on non-journald hosts
 # Environment=WEBHOOK_URL=https://hooks.example.com/notify
 # Environment=RECOVERY_CMD=docker restart vllm-serve
@@ -35,6 +38,9 @@ Environment=TRIGGER_MODE=both
 ExecStart=/usr/local/bin/xpu-wedge-watchdog.sh --loop
 Restart=on-failure
 RestartSec=5
+
+StateDirectory=xpu-wedge-watchdog
+LogsDirectory=xpu-wedge-watchdog
 
 # Hardening (kernel logs + docker socket are the only privileged needs)
 NoNewPrivileges=true
