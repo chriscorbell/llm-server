@@ -39,6 +39,10 @@ It is skipped by the opencode harness. opencode 1.18.27 attaches images with mim
 
 That sends the same screenshot as a proper image part and checks the returned stylesheet with the same headless layout verifier, so a pass means the same thing. Set `EVAL_CLIENT_SENDS_IMAGES=1` to re-enable the opencode path once the client is fixed.
 
+## How the suite was validated
+
+Every task was run twice before the model ever saw it, once on the untouched fixture and once with a known-correct fix applied by script, to prove it discriminates in both directions. That pass found two defects in the suite itself. See [the build entry](../docs/log/2026-09-07-eval-suite-built.md).
+
 ## Adding a task
 
 Create `tasks/NN-name/` with `prompt.md`, `fixture/`, and an executable `verify.sh` that exits 0 on pass and 2 to skip. Add `setup.sh` if the fixture must be generated. `verify.sh` runs with `TASK_DIR` pointing at the task directory, so it can reach files kept outside the fixture, which is how the vision check stays tamper-proof.
