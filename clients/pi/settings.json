@@ -18,6 +18,5 @@
     }
   },
   "quietStartup": true,
-  "showCacheMissNotices": true,
-  "shellCommandPrefix": "shopt -s expand_aliases\neval \"$(grep '^alias ' ~/.zshrc)\""
+  "showCacheMissNotices": true
 }

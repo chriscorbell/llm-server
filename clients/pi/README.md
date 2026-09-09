@@ -4,7 +4,7 @@ Pi runs on the MacBook and uses its local tools to read, edit and test code. The
 
 ## Install the checked configuration
 
-Pi 0.85.1 from `@earendil-works/pi-coding-agent` is the validated client version. Keep the API key in the environment; do not copy it into JSON.
+Pi 0.85.1 from `@earendil-works/pi-coding-agent` is the validated client version. The API key lives in `~/.pi/agent/auth.json`, which Pi reads for custom providers and creates with mode 0600. Do not copy it into `models.json`, which is checked in.
 
 ```bash
 npm install -g @earendil-works/pi-coding-agent@0.85.1
@@ -13,7 +13,15 @@ cp clients/pi/models.json ~/.pi/agent/models.json
 cp clients/pi/settings.json ~/.pi/agent/settings.json
 ln -sfn "$PWD/clients/pi/extensions/llm-server" ~/.pi/agent/extensions/llm-server
 (cd clients/pi/extensions/llm-server && npm install)
-test -n "$LLM_SERVER_API_KEY"
+```
+
+Write the server key into Pi's auth file once, replacing the placeholder, then confirm the model is available:
+
+```bash
+umask 077
+cat > ~/.pi/agent/auth.json <<'EOF'
+{ "llm-server": { "type": "api_key", "key": "change-me" } }
+EOF
 pi --list-models qwen38
 ```
 
@@ -70,7 +78,7 @@ From the repository root, Pi offers three templates that encode the recording du
 
 ## Settings worth knowing
 
-`quietStartup` hides the banner, `showCacheMissNotices` prints Pi's own notice on a large cache miss, and `shellCommandPrefix` loads the aliases from `~/.zshrc` into the non-interactive shell Pi uses for `bash`. `hideThinkingBlock` is off; turn it on in `~/.pi/agent/settings.json` if xhigh output is too noisy.
+`quietStartup` hides the banner and `showCacheMissNotices` prints Pi's own notice on a large cache miss. The `bash` tool runs a plain non-interactive shell with no aliases from `~/.zshrc`; an earlier `shellCommandPrefix` that imported them was removed on 2026-09-09 because display aliases such as `ls` to `eza --icons` print nothing outside a terminal and cost the model a turn of confusion. `hideThinkingBlock` is off; turn it on in `~/.pi/agent/settings.json` if xhigh output is too noisy.
 
 ## Why these compatibility settings
 
