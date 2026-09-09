@@ -32,7 +32,8 @@ export default function notify(pi: ExtensionAPI) {
 		if (!started) return;
 		const elapsed = (performance.now() - started) / 1000;
 		started = 0;
-		if (elapsed < MIN_SECONDS || !ctx.hasUI) return;
+		// In rpc mode another program owns the UI and posts its own notification.
+		if (elapsed < MIN_SECONDS || !ctx.hasUI || ctx.mode === "rpc") return;
 		const project = ctx.cwd.split("/").filter(Boolean).pop() ?? "pi";
 		send("Pi", `Ready after ${Math.round(elapsed)} s in ${project}`);
 	});
