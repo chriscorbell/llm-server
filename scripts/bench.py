@@ -8,7 +8,9 @@ Every run uses a unique random prefix so prefix caching does not silently turn a
 cold measurement into a warm one. Pass --warm to measure the cached path instead.
 
 Usage:
-  ./bench.py --base-url http://vllm:8000 --key "$API_KEY" --prompt-tokens 512 --gen 128 -n 5
+  ./bench.py --base-url http://vllm:8000 --prompt-tokens 512 --gen 128 -n 5
+
+The key defaults to the llm-server entry in ~/.pi/agent/auth.json; pass --key to override.
 """
 import argparse, json, os, statistics, time, urllib.request, uuid, sys, re
 from pathlib import Path
@@ -104,10 +106,18 @@ def filler(n_tokens, kind="code"):
     body = (text * (want // len(text) + 1))[:want]
     return f"// benchmark session {uuid.uuid4().hex}\n{body}"
 
+def pi_api_key(provider="llm-server"):
+    """The server key from Pi's auth store, which is where it lives on the MacBook."""
+    agent_dir = Path(os.environ.get("PI_CODING_AGENT_DIR") or Path.home() / ".pi" / "agent")
+    try:
+        return json.loads((agent_dir / "auth.json").read_text())[provider]["key"]
+    except (OSError, KeyError, TypeError, ValueError):
+        return None
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://127.0.0.1:8000")
-    ap.add_argument("--key", default=os.environ.get("LLM_SERVER_API_KEY", "change-me"))
+    ap.add_argument("--key", default=pi_api_key() or "change-me", help="defaults to the llm-server key in Pi's auth.json")
     ap.add_argument("--model", default="qwen38")
     ap.add_argument("--prompt-tokens", type=int, default=512)
     ap.add_argument("--gen", type=int, default=128)

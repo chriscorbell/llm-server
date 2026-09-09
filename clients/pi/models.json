@@ -3,7 +3,6 @@
     "llm-server": {
       "baseUrl": "http://vllm:8000/v1",
       "api": "openai-completions",
-      "apiKey": "$LLM_SERVER_API_KEY",
       "compat": {
         "supportsStore": false,
         "supportsDeveloperRole": false,

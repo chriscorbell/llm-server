@@ -6,10 +6,10 @@ Opencode reaches the server over Tailscale at `http://vllm:8000/v1`. The server 
 
 Merge `opencode.jsonc` into `~/.config/opencode/opencode.jsonc` on the MacBook. Keep your existing `permission` and `mcp` blocks; only the `provider` and `model` keys below are ours.
 
-Put the API key in the environment rather than the config file:
+Store the API key in opencode's own auth file rather than the config file or the shell environment. Run the login flow, choose "Other", enter `llm-server` as the provider id and paste the key. It lands in `~/.local/share/opencode/auth.json` with mode 0600, and opencode uses it for the provider of the same name.
 
 ```bash
-echo 'export LLM_SERVER_API_KEY=...' >> ~/.zshrc
+opencode auth login
 ```
 
 ## Why these settings

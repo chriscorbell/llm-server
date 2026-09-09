@@ -5,8 +5,7 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "llm-server (vllm)",
       "options": {
-        "baseURL": "http://vllm:8000/v1",
-        "apiKey": "{env:LLM_SERVER_API_KEY}"
+        "baseURL": "http://vllm:8000/v1"
       },
       "models": {
         "qwen38": {

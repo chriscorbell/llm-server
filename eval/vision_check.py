@@ -63,10 +63,18 @@ def ask(base_url: str, key: str, model: str, css: str, png: bytes) -> str:
     return message.get("content") or ""
 
 
+def pi_api_key(provider="llm-server"):
+    """The server key from Pi's auth store, which is where it lives on the MacBook."""
+    agent_dir = Path(os.environ.get("PI_CODING_AGENT_DIR") or Path.home() / ".pi" / "agent")
+    try:
+        return json.loads((agent_dir / "auth.json").read_text())[provider]["key"]
+    except (OSError, KeyError, TypeError, ValueError):
+        return None
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://100.103.136.98:8000")
-    ap.add_argument("--key", default=os.environ.get("LLM_SERVER_API_KEY", ""))
+    ap.add_argument("--key", default=pi_api_key() or "", help="defaults to the llm-server key in Pi's auth.json")
     ap.add_argument("--model", default="qwen38")
     a = ap.parse_args()
 
