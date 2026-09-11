@@ -21,6 +21,7 @@ def post_stream(url, key, body, timeout=1800):
         data=json.dumps(body).encode(),
         headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
     )
+    started_at = time.time()
     t0 = time.monotonic()
     ttft = None
     chunks = 0
@@ -61,7 +62,8 @@ def post_stream(url, key, body, timeout=1800):
     # chunks understates the rate. Trust the server's own usage count when present.
     if completion_tokens is None or prompt_tokens is None:
         raise RuntimeError("Server omitted usage token counts; stream chunks are not tokens with MTP")
-    return {"ttft_s": ttft, "gen_tokens": completion_tokens, "total_s": total,
+    return {"started_at": started_at, "finished_at": time.time(),
+            "ttft_s": ttft, "gen_tokens": completion_tokens, "total_s": total,
             "prompt_tokens": prompt_tokens, "cached_tokens": cached_tokens,
             "finish_reason": finish_reason, "stream_chunks": chunks, "text": text}
 

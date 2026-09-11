@@ -4,6 +4,8 @@ Last updated: 2026-09-11. Rewrite the affected lines whenever reality changes. T
 
 ## Current state
 
+Optimization experiments are in progress on September 11. Current arm: `a-int4draft`, MTP3, no CPU pinning. The benchmark preparation and live validation are recorded in [INT4 MTP depth](docs/log/2026-09-11-int4-mtp-depth.md). No new tuning setting has been selected yet.
+
 Profile `a-int4draft` is running and healthy on `vllm`, serving Qwen3.8-27B with vision, tool calling and thinking at 96K context. It is the `a-bf16kv` configuration plus the INT4 draft overlay, which measured 26 to 31% faster decode with the task suite at 8 of 8. `a-bf16kv` is the rollback profile. Reachable at `http://100.103.136.98:8000/v1` with the API key in `compose/.env` on the server.
 
 Read-only verification on 2026-09-11 starting at 12:28 UTC found the same image digest, MTP3, 98,304-token limit, utilization 0.95, 8,192 batched tokens, one sequence and no CPU pinning. Startup logs report 111,509 KV tokens and completed graph capture for piecewise prefill/decode and full decode; XPU graphs are already enabled. The container started on 2026-09-10 at 21:22 UTC and has zero Docker restarts since then. Health passes; the watchdog service is enabled and active. Request counters are zero since startup, so this inspection supplies no new throughput or task-quality measurement. Both working clones are clean at `4b82d94` before this documentation update.
