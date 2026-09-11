@@ -66,3 +66,5 @@ Six measured repetitions per row after one discarded warmup. Concurrency 1, cach
 | tool, thinking off | 8531 | 768 | 84.0 (2.08) | 0.771 | 7488 | 78.7% | 30.479 |
 
 These throughput runs end at the output cap and do not score code correctness. Complete task-suite validation is running.
+
+Deployment preparation: `scripts/compose.sh` now loads private `compose/.env` followed by tracked `compose/tuning.env`. The tracked file initially contains the unchanged baseline, `MTP_TOKENS=3` and empty `CPUSET`. This permits measured defaults to be committed on mbp and pulled on the server. Individual arms still use shell overrides, which take precedence. Use the wrapper for subsequent serving commands. This preparation does not change the running container.

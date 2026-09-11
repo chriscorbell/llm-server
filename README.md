@@ -28,10 +28,12 @@ ssh <hostname> 'bash -s' < scripts/setup-server.sh
 Then copy `compose/.env.example` to `compose/.env`, fill in the render group id, an API key and a SearXNG secret, and start one Profile. SearXNG, which backs Pi's web search, has no profile and starts alongside whichever engine you pick:
 
 ```bash
-ssh <hostname> 'cd ~/Code/llm-server/compose && docker compose --profile a-int4draft up -d'
+ssh <hostname> 'cd ~/Code/llm-server && bash scripts/compose.sh --profile a-int4draft up -d'
 ```
 
 First start takes several minutes while the engine compiles kernels. Watch it with `docker logs -f qwen38`.
+
+`scripts/compose.sh` loads the server's private `compose/.env`, then the measured defaults in `compose/tuning.env`. Tuning changes are committed on the MacBook and pulled on the server; credentials stay in `.env`. Shell variables can override one setting for an experiment. Use this wrapper for subsequent Compose commands so an older value in `.env` cannot silently undo a measured optimization.
 
 ## Credit
 

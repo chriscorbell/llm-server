@@ -58,7 +58,7 @@ Why this stack was chosen at all, including the engines rejected and the reasoni
 
 ## Configuration in force
 
-Defined in `compose/.env` on the server, template in `compose/.env.example`. The decisions behind these values:
+Machine-specific values and credentials are in `compose/.env` on the server, template in `compose/.env.example`. `scripts/compose.sh` loads that file followed by the tracked measured defaults in `compose/tuning.env`. Shell environment overrides take precedence for experiments. The decisions behind these values:
 
 Verified live: maximum context 98,304 tokens, GPU utilization 0.95, batched tokens 8,192, one sequence, MTP3, INT4 draft overlay on, prefix caching on, 111,509 KV tokens. The historical `a-bf16kv` profile actually uses `--dtype float16 --kv-cache-dtype auto`; its attention cache follows FP16. The profile name and old log labels are retained for traceability. The example environment now matches the working context and utilization values. [inspection](docs/log/2026-09-07-agent-client-contract.md)
 
