@@ -118,13 +118,26 @@ def run_task(task: Path, model: str, timeout: int, keep: bool,
 
     started = time.monotonic()
     timed_out = False
-    try:
-        agent = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True,
-                               timeout=timeout)
-        agent_out = agent.stdout + agent.stderr
-    except subprocess.TimeoutExpired as exc:
-        timed_out = True
-        agent_out = (exc.stdout or b"").decode(errors="replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
+    with tempfile.TemporaryDirectory(prefix="eval-metrics-") as metrics_dir:
+        client_env = os.environ.copy()
+        log_destination = client_env.get("PI_LLM_SERVER_LOG")
+        request_log = Path(metrics_dir) / "requests.jsonl"
+        if log_destination:
+            # The child cannot write repository results directly. Collect its
+            # optional request metrics outside the protected tree, then copy them.
+            client_env["PI_LLM_SERVER_LOG"] = str(request_log)
+        try:
+            agent = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True,
+                                   timeout=timeout, env=client_env)
+            agent_out = agent.stdout + agent.stderr
+        except subprocess.TimeoutExpired as exc:
+            timed_out = True
+            agent_out = (exc.stdout or b"").decode(errors="replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
+        if log_destination and request_log.exists():
+            destination = Path(log_destination)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with destination.open("a") as log:
+                log.write(request_log.read_text())
     elapsed = time.monotonic() - started
 
     env = {**os.environ, "TASK_DIR": str(task)}

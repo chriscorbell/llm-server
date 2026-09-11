@@ -154,3 +154,5 @@ python3 scripts/bench.py --base-url http://100.103.136.98:8000 \
 ```
 
 Replace the output label with `mtp4` for the second arm after changing only `MTP_TOKENS`. Cold input/TTFT is an effective client-visible prefill rate, including overhead, not an isolated GPU kernel rate.
+
+The MTP3 cold arm completed: 32587 median actual input tokens, zero cached, 128 generated, thinking off, concurrency 1 and three measured repetitions. Median TTFT 18.61 s, effective prefill 1751.1 tok/s, decode 72.2 tok/s (sd 1.14), acceptance 77.0%, peak global VRAM 30.401 GiB. Diagnostics were saved in `pre-mtp4-cold-health.log` before returning to MTP4.

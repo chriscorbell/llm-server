@@ -46,3 +46,11 @@ Attachments no longer expose source-fixture locations. The model under test cann
 ### Live validation
 
 The corrected MTP4 Pi suite passed 8/8 in 222.7 seconds, generating 13,653 tokens with 49 tool calls, xhigh and concurrency 1. Maximum prompt lengths ranged from 7,621 to 12,689 tokens. This single suite uses fewer generated tokens than the MTP3 run, so its wall-time difference is not a pure engine-speed measurement. No source fixture changed.
+
+### Request-metrics collection correction
+
+The completed task run had no optional `mtp4-isolated-requests.jsonl`. Inspection raised `FileNotFoundError: [Errno 2] No such file or directory`. The extension catches write failures because its logging is best effort. The macOS repository-write rule also blocked this file when the child tried to append to the requested results path.
+
+Hypothesis: collecting child metrics outside the protected repository and copying them back from the parent preserves both isolation and request logging. The runner now redirects `PI_LLM_SERVER_LOG` into a temporary metrics directory for each task. After the client finishes, the parent appends that file to the requested destination. Serving flags are unchanged.
+
+The focused regression now asks its fake Pi to append a metrics record while attempting the forbidden canary write. Before the correction it failed in 0.208 s with `AssertionError: 'prior metrics\\n' != 'prior metrics\\nrequest metrics\\n'`. Afterward it passed in 0.168 s, including the attachment and canary checks. The live missing metrics cannot be recovered. Task pass counts, wall times and token counts from saved Pi transcripts remain valid; no request-level latency claim uses that missing file. Subsequent live suites will verify the corrected metrics path.

@@ -38,11 +38,19 @@ if canary:
         Path(canary).write_text("changed")
     except PermissionError:
         pass
+try:
+    with Path(os.environ["PI_LLM_SERVER_LOG"]).open("a") as log:
+        log.write('request metrics\\n')
+except PermissionError:
+    pass
 ''')
             pi.chmod(0o755)
             canary = Path(protected) / "canary.txt"
             canary.write_text("unchanged")
-            environment = {"PATH": str(binary) + os.pathsep + os.environ["PATH"]}
+            request_log = Path(protected) / "requests.jsonl"
+            request_log.write_text("prior metrics\n")
+            environment = {"PATH": str(binary) + os.pathsep + os.environ["PATH"],
+                           "PI_LLM_SERVER_LOG": str(request_log)}
             if sys.platform == "darwin":
                 environment["EVAL_ISOLATION_CANARY"] = str(canary)
             with patch.dict(os.environ, environment):
@@ -50,6 +58,7 @@ if canary:
             self.assertEqual(result["status"], "pass", result)
             self.assertEqual((fixture / "styles.css").read_text(), "broken")
             self.assertEqual(canary.read_text(), "unchanged")
+            self.assertEqual(request_log.read_text(), "prior metrics\nrequest metrics\n")
 
 
 if __name__ == "__main__":
