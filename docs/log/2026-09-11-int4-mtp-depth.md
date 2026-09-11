@@ -125,3 +125,32 @@ The first MTP4 suite scored 7/8, but the vision failure came from an attachment-
 The corrected MTP4 Pi suite passed 8/8 in 222.7 seconds, generating 13,653 tokens with 49 tool calls, xhigh and concurrency 1. Maximum prompt lengths ranged from 7,621 to 12,689 tokens. This single suite uses fewer generated tokens than the MTP3 run, so its wall-time difference is not a pure engine-speed measurement. No source fixture changed.
 
 Diagnostics are captured in `pre-mtp3-recheck-health.log`. The next arm returns to MTP3 and repeats code at 8K, 32K and 57K, reasoning at 8K, and tool output at 8K.
+
+The MTP3 recheck container started at 13:30:44 UTC. At 13:34:02 its startup log restored the expected 111,509 KV tokens. The same source image and unpinned CPU configuration are retained.
+
+The repeated MTP3 code arm at 8,253 actual input tokens completed at 84.0 tok/s (sd 2.14), TTFT 0.911 s, 768 generated tokens, six warm repetitions, thinking off and concurrency 1. The first MTP3 median was 84.3 tok/s. MTP4's 94.1 tok/s remains above both control runs. The 32K and 57K checks are still running.
+
+### MTP3 baseline recheck
+
+Six measured warm repetitions per row, concurrency 1. Code and tool output use thinking off and 768 output tokens; reasoning uses xhigh and 512. The recheck again passed 18/18 short-output cases.
+
+| Workload | Actual input tokens | Output tokens | Decode median (sd), tok/s | TTFT, s | Cached tokens | Draft acceptance | Peak global VRAM, GiB |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| mtp3-recheck-code-p32768-warm | 32592 | 768 | 74.7 (2.74) | 0.782 | 31616 | 80.4% | 30.401 |
+| mtp3-recheck-code-p57344-warm | 56909 | 768 | 69.8 (1.07) | 1.158 | 55744 | 85.0% | 30.401 |
+| mtp3-recheck-code-p8192-warm | 8253 | 768 | 84.0 (2.14) | 0.911 | 6656 | 80.9% | 30.303 |
+| mtp3-recheck-reasoning-p8192-warm | 8294 | 512 | 62.8 (5.7) | 0.939 | 6656 | 52.8% | 30.401 |
+| mtp3-recheck-tool-p8192-warm | 8533 | 768 | 83.8 (1.93) | 0.772 | 7488 | 80.2% | 30.401 |
+
+MTP4's medians remain 12.0% above the second MTP3 control for 8K code, 8.4% for 32K code, 8.8% for 8K tool output and 3.6% near 57K. Reasoning varies between baseline runs and does not support a clear gain. Warm TTFT is effectively unchanged. The chosen throughput candidate is MTP4, pending the cold-request check before persisting it.
+
+Cold code requests now compare MTP3 and MTP4 at approximately 32K actual input, 128 generated tokens, thinking off, concurrency 1, three measured repetitions after a discarded warmup. Each request uses a fresh prefix and reports zero cached tokens. The command for each depth is:
+
+```bash
+python3 scripts/bench.py --base-url http://100.103.136.98:8000 \
+  --corpus-file eval/results/2026-09-11-tuning/corpus.txt --workload code \
+  --prompt-tokens 32768 --gen 128 -n 3 \
+  --json eval/results/2026-09-11-tuning/mtp3-code-p32768-cold.json
+```
+
+Replace the output label with `mtp4` for the second arm after changing only `MTP_TOKENS`. Cold input/TTFT is an effective client-visible prefill rate, including overhead, not an isolated GPU kernel rate.
