@@ -81,3 +81,18 @@ bash scripts/bench-arm.sh mtp2
 The first code repetition at 8,254 actual input tokens, 768 generated tokens, concurrency 1 and thinking off measured 72.8 tok/s. No conclusion is drawn from this single repetition; the six-repetition screening is running.
 
 The MTP2 six-repetition code result at 8,254 input tokens is 71.2 tok/s (sd 1.11), versus MTP3 84.3 tok/s (sd 2.45) at 8,251 tokens. Both use concurrency 1, thinking off, 768 generated tokens and cached prefixes. Higher aggregate acceptance, 87.1% versus 81.4%, does not compensate for removing the third speculative token. Remaining workloads are still running.
+
+### MTP2 screening
+
+Six measured repetitions per row, concurrency 1, warm prefix, same fixed corpus and sampling controls as MTP3.
+
+| Workload | Actual input tokens | Output tokens | Decode median (sd), tok/s | TTFT, s | Cached tokens | Draft acceptance | Peak global VRAM, GiB |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| code, thinking off | 8254 | 768 | 71.2 (1.11) | 0.909 | 6656 | 87.1% | 29.542 |
+| code, thinking off | 32594 | 768 | 64.4 (0.85) | 0.786 | 31616 | 89.4% | 30.362 |
+| reasoning, xhigh | 8294 | 512 | 60.0 (5.93) | 0.933 | 6656 | 62.7% | 30.362 |
+| tool, thinking off | 8534 | 768 | 71.9 (1.17) | 0.799 | 7488 | 86.4% | 30.363 |
+
+MTP2 is rejected for throughput: all four medians are below MTP3. The extra 2,553 KV tokens do not expand the configured 98,304-token window. No complete Pi suite is run on this slower arm; the repeated short-output gate is recorded separately.
+
+MTP2 passed 18/18 short-output checks: arithmetic, JSON and parsed tool arguments, three repetitions each, thinking off, concurrency 1. These checks do not establish general quality parity. Diagnostics are saved in `pre-mtp4-health.log` before the next restart.
