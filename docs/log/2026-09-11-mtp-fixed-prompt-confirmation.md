@@ -36,3 +36,14 @@ No result yet. The earlier screening remains recorded; this comparison determine
 ## Consequences
 
 MTP4 remains the tracked selection pending confirmation. The final container will use the selected depth and unrestricted CPUs through committed Compose defaults.
+
+### MTP4 control
+
+Six measured warm repetitions per row, concurrency 1. These request bodies will be reused unchanged for MTP3.
+
+| Workload | Actual input tokens | Output tokens | Decode median (sd), tok/s | TTFT, s | Cached tokens | Draft acceptance | Peak global VRAM, GiB |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| fixed-mtp4-code | 8240 | 768 | 90.1 (4.08) | 0.911 | 6656 | 73.1% | 30.224 |
+| fixed-mtp4-reasoning | 8282 | 512 | 65.0 (7.12) | 0.942 | 6656 | 46.0% | 30.224 |
+
+Diagnostics were captured in `pre-fixed-mtp3-health.log` before recreating with MTP3. No conclusion is drawn from this arm alone.

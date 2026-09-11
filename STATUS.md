@@ -4,7 +4,7 @@ Last updated: 2026-09-11. Rewrite the affected lines whenever reality changes. T
 
 ## Current state
 
-Optimization experiments are in progress on September 11. MTP4 remains the tracked default on the original pinned engine. vLLM 0.29.0 passed correctness checks but provided no material speed gain and was rolled back. One-CCX CPU pinning also showed no repeatable improvement. The current container is healthy on the original image and MTP4, with all 64 CPUs enabled explicitly as `0-63`; recreation will restore empty Docker affinity metadata. A final MTP3/MTP4 comparison now removes the per-run prompt nonce as a source of variation before client-effort measurements.
+Optimization experiments are in progress on September 11. MTP4 remains the tracked default on the original pinned engine. vLLM 0.29.0 passed correctness checks but provided no material speed gain and was rolled back. One-CCX CPU pinning also showed no repeatable improvement. The container is being recreated on the original image with temporary MTP3 for exact-request confirmation. This also restores empty Docker affinity metadata, with all 64 CPUs still available. A final MTP3/MTP4 comparison now removes the per-run prompt nonce as a source of variation before client-effort measurements.
 
 Profile `a-int4draft` is running and healthy on `vllm`, serving Qwen3.8-27B with vision, tool calling and thinking at 96K context. It is the `a-bf16kv` configuration plus the INT4 draft overlay, which measured 26 to 31% faster decode with the task suite at 8 of 8. `a-bf16kv` is the rollback profile. Reachable at `http://100.103.136.98:8000/v1` with the API key in `compose/.env` on the server.
 
@@ -79,6 +79,9 @@ Tracked validated defaults on the old image: maximum context 98,304 tokens, GPU 
 ## Open questions
 
 Ideas not yet tested. Move one into `docs/log/` the moment you test it.
+
+- Does INT4 draft depth 5 improve on depth 4 while preserving reasoning throughput and the 98,304-token window? The current sweep stops at depth 4; use identical request hashes and check complete task quality before expanding the depth.
+- Would persisting the engine compile cache across container recreation shorten configuration changes? Both image trials compile inside the container; no persistent-cache configuration has been tested. Ordinary container restarts retain their writable layer.
 
 - How does this setup score on repeated, representative repository tasks beyond the seven small coding fixtures? The Pi compaction check preserves a simple requirement, but complex edits across compaction remain unmeasured. `scripts/bench.py` now records actual API prompt-token counts.
 - What does `xhigh` reasoning effort buy over `medium` on the task suite, and at what wall-clock cost? Compare repeated complete tasks with the current Pi extension loaded, including harder repository edits and compaction. Count first-attempt passes, retries, generated tokens and total seconds. Hold effort constant within each task because changing it changes the prompt prefix. Keep `xhigh` until reduced effort wins on successful task completion time.
