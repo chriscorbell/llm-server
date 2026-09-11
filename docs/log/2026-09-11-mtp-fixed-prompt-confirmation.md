@@ -68,3 +68,7 @@ Reasoning at exactly 8,282 input tokens, 512 generated and xhigh measures 65.7 t
 Peak global VRAM is the observed maximum during each arm's measured requests; allocator history differs because MTP4 followed the CPU trials and MTP3 was freshly recreated. Use the startup KV capacities, 109,067 versus 111,509 tokens, for the durable capacity comparison. Both retain the 98,304-token context limit.
 
 MTP4 remains selected. Diagnostics were saved in `pre-final-mtp4-health.log` before restoring the committed defaults with no shell overrides. `STATUS.md` now leads with the exact-request 6.6% code gain and links the earlier longer-context screening separately. The CLI guard rejecting a fixed prompt ID on cold runs was also checked locally without sending an inference request.
+
+### Deployment verification
+
+The final container started at 14:38:02 UTC with the original digest, MTP4, 98,304 context, utilization 0.95, 8,192 batched tokens, one sequence, both draft-overlay flags and XPU graphs. Docker CPU affinity metadata is empty and all 64 CPUs are available. It reports 109,067 KV tokens, remains healthy and has zero Docker restarts. The final smoke checks and the fresh xhigh Pi suite pass. The API remains bound to `100.103.136.98:8000`; SearXNG remained running throughout the experiments. Kernel and container diagnostics are in `final-kernel.log` and `final-health.log`.

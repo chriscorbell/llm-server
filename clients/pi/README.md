@@ -50,7 +50,9 @@ pi --model llm-server/qwen38 --thinking xhigh --tools read,ls -p \
 
 Pi's tools run on the MacBook. A shell command requested by Qwen therefore runs in the current MacBook directory, never on `vllm`, unless the command itself uses SSH.
 
-Keep the thinking level at xhigh for normal work. In the checked conversation, cached tool follow-ups at about 23K input tokens started in 0.9 to 1.0 seconds. The first request after compaction took 12.3 seconds at 22.6K input tokens. A pause after adding a large file or compacting is expected; these timings measure the first reasoning token at concurrency 1, not the final answer.
+For small edits with clear checks, run `pi --thinking medium`. Two eight-task runs finished in 132.9 and 145.9 seconds; xhigh took 199.6 and 222.7 seconds. Every run passed 8/8, at concurrency 1 with per-task maximum prompts from 7.1K to 12.7K tokens. Xhigh remains the default for harder repository work because these fixtures do not test complex changes or compaction. [Effort measurements](../../docs/log/2026-09-11-pi-reasoning-effort.md).
+
+Choose the thinking level before starting a task, because changing it invalidates the cached prefix. In the checked conversation, cached tool follow-ups at about 23K input tokens started in 0.9 to 1.0 seconds. The first request after compaction took 12.3 seconds at 22.6K input tokens. A pause after adding a large file or compacting is expected; these timings measure the first reasoning token at concurrency 1, not the final answer.
 
 ## The llm-server extension
 

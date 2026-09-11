@@ -1,6 +1,6 @@
 # 2026-09-11 Pi reasoning effort and completed task time
 
-Status: in progress, xhigh control active
+Status: concluded, medium documented for routine edits; xhigh remains default
 Profile: selected a-int4draft configuration, Pi 0.85.1
 
 ## Hypothesis
@@ -39,3 +39,24 @@ The final container started at 14:38:02 UTC from the committed defaults, with no
 ### First medium run
 
 Medium passed 8/8 in 145.9 seconds, generated 7,154 tokens and used 49 tool calls, concurrency 1. Per-task maximum prompt lengths ranged from 7,138 to 9,569 tokens. The earlier corrected xhigh run took 222.7 seconds, generated 13,653 tokens and also used 49 tool calls. The global default remains xhigh after the medium CLI run. A fresh xhigh control and a second medium run follow before drawing a task-time conclusion.
+
+### Fresh xhigh control
+
+The fresh xhigh run passed 8/8 in 199.6 seconds, generated 11,604 tokens and used 56 tool calls, concurrency 1. Per-task maximum prompt lengths ranged from 7,626 to 10,320 tokens. Medium's first run was 26.9% shorter than this fresh control. The second medium run is now active, with all serving settings unchanged.
+
+### Completed effort comparison
+
+All runs use the same original engine, MTP4 and unrestricted CPUs, with Pi 0.85.1 and the current extension. Concurrency is one task. Prompt lengths grow with tool turns; the last column records the range of each task's maximum actual prompt length. The earlier xhigh control used the corrected attachment/sandbox runner before its optional metrics-copy correction; its task times and token counts come from saved Pi transcripts.
+
+| Run | Effort | Passed | Task seconds | Generated tokens | Tool calls | Per-task maximum input tokens |
+|---|---|---:|---:|---:|---:|---|
+| mtp4-tasks-isolated | xhigh | 8/8 | 222.7 | 13,653 | 49 | 7,621 to 12,689 |
+| effort-medium-1 | medium | 8/8 | 145.9 | 7,154 | 49 | 7,138 to 9,569 |
+| effort-xhigh-1 | xhigh | 8/8 | 199.6 | 11,604 | 56 | 7,626 to 10,320 |
+| effort-medium-2 | medium | 8/8 | 132.9 | 7,320 | 47 | 7,236 to 9,801 |
+
+Mean task time across two runs per effort is 139.4 s for medium and 211.15 s for xhigh, a 34.0% reduction on these fixtures. Both efforts pass 16/16 task instances. Medium's generated output is lower in both runs. Individual task paths and tool-call counts vary, so these are complete-task observations rather than a fixed-output decode comparison.
+
+Medium is useful for these small, well-scoped coding and vision tasks. `clients/pi/README.md` now documents `pi --thinking medium` for that use. The global default remains xhigh: this suite does not establish quality equivalence on difficult repository changes or complex work across compaction. No global client setting was modified.
+
+Final verification found the original engine healthy on MTP4, 98,304-token context, empty Docker CPU affinity metadata and the Tailscale-only binding. Both draft overlay flags and XPU graphs are enabled. The watchdog is active and enabled. The kernel journal since 12:28 UTC contains 104 container-network entries and no GPU/fault-related entries. No source fixture changed. The API has zero running or waiting requests after the suite. The temporary one-second GPU sampler was deliberately stopped after its PID and command were verified.
