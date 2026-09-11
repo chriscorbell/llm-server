@@ -68,3 +68,5 @@ Six measured repetitions per row after one discarded warmup. Concurrency 1, cach
 These throughput runs end at the output cap and do not score code correctness. Complete task-suite validation is running.
 
 Deployment preparation: `scripts/compose.sh` now loads private `compose/.env` followed by tracked `compose/tuning.env`. The tracked file initially contains the unchanged baseline, `MTP_TOKENS=3` and empty `CPUSET`. This permits measured defaults to be committed on mbp and pulled on the server. Individual arms still use shell overrides, which take precedence. Use the wrapper for subsequent serving commands. This preparation does not change the running container.
+
+Baseline Pi 0.85.1 with the current extension and xhigh passed 8/8 tasks in 280.0 seconds, with 16,409 generated tokens and 63 tool calls. Concurrency 1; each task starts fresh, and observed prompt lengths vary with its tool turns. This is the comparison baseline for complete tasks.
