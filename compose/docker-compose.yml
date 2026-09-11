@@ -1,11 +1,11 @@
 # Qwen3.8-27B on one Intel Arc Pro B70. See ../STATUS.md for what is current.
 #
 # One Profile runs at a time; the GPU holds one model.
-#   docker compose --profile a-int4draft up -d   # daily driver
-#   docker compose --profile a-bf16kv up -d      # rollback, no draft overlay
-#   docker compose --profile a-fp8kv  up -d
+#   bash scripts/compose.sh --profile a-int4draft up -d   # daily driver
+#   MTP_TOKENS=3 bash scripts/compose.sh --profile a-bf16kv up -d # rollback
+#   bash scripts/compose.sh --profile a-fp8kv up -d
 #
-# Every tunable lives in .env so that a Profile difference is a one-line diff in a log entry.
+# Private .env values are followed by measured defaults from tuning.env.
 
 x-b70-common: &b70-common
   image: ${VLLM_IMAGE}
@@ -89,7 +89,7 @@ services:
         max-file: "2"
 
   # Rollback arm without the draft overlay. Historical profile name says BF16; with dtype float16 and KV auto,
-  # the attention cache is FP16. Vision on. MTP4. Single sequence.
+  # the attention cache is FP16. Vision on. Depth from MTP_TOKENS. Single sequence.
   vllm-a-bf16kv:
     <<: *b70-common
     container_name: qwen38

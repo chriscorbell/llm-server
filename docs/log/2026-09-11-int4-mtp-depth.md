@@ -1,6 +1,6 @@
 # 2026-09-11 MTP depth with the INT4 draft
 
-Status: in progress
+Status: concluded, MTP4 selected
 Profile: a-int4draft
 
 ## Hypothesis
@@ -156,3 +156,9 @@ python3 scripts/bench.py --base-url http://100.103.136.98:8000 \
 Replace the output label with `mtp4` for the second arm after changing only `MTP_TOKENS`. Cold input/TTFT is an effective client-visible prefill rate, including overhead, not an isolated GPU kernel rate.
 
 The MTP3 cold arm completed: 32587 median actual input tokens, zero cached, 128 generated, thinking off, concurrency 1 and three measured repetitions. Median TTFT 18.61 s, effective prefill 1751.1 tok/s, decode 72.2 tok/s (sd 1.14), acceptance 77.0%, peak global VRAM 30.401 GiB. Diagnostics were saved in `pre-mtp4-cold-health.log` before returning to MTP4.
+
+### Final result and promotion
+
+The MTP4 cold comparison completed at 32591 median actual input tokens, zero cached, 128 generated, thinking off, concurrency 1 and three measured repetitions. Median TTFT is 18.606 s, effective prefill 1751.7 tok/s, decode 74.2 tok/s (sd 1.22), acceptance 65.7%, peak global VRAM 30.499 GiB. The MTP3 cold TTFT was 18.610 s. There is no measured cold-prefill penalty.
+
+MTP4 is selected for the INT4 draft profile. `compose/tuning.env` now records MTP4, the unchanged engine digest and empty CPU affinity. The wrapper makes this reproducible without modifying the server's private `.env`. The 98,304-token context stays unchanged; MTP4 provides 109,067 KV tokens versus MTP3's 111,509. The Finding in `STATUS.md` links these measurements. MTP2 is rejected as slower; reasoning throughput remains inconclusive. Quality checks passed 18/18 short cases and 8/8 corrected Pi tasks. Larger repository edits and output-distribution equivalence remain unmeasured.
