@@ -104,3 +104,16 @@ ssh vllm 'cd /home/chris/Code/llm-server && env MTP_TOKENS=4 bash scripts/compos
 python3 eval/mtp_check.py --out eval/results/2026-09-11-tuning/mtp4-short.json
 bash scripts/bench-arm.sh mtp4
 ```
+
+### MTP4 screening
+
+Six measured repetitions per row, concurrency 1, warm prefix, same fixed corpus and sampling controls. Peak global VRAM is the maximum one-second kernel sample during the measured repetitions.
+
+| Workload | Actual input tokens | Output tokens | Decode median (sd), tok/s | TTFT, s | Cached tokens | Draft acceptance | Peak global VRAM, GiB |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| code, thinking off | 8248 | 768 | 94.1 (3.95) | 0.914 | 6656 | 75.4% | 30.187 |
+| code, thinking off | 32590 | 768 | 81.0 (3.98) | 0.79 | 31616 | 74.3% | 30.285 |
+| reasoning, xhigh | 8290 | 512 | 68.4 (9.62) | 0.943 | 6656 | 47.5% | 30.285 |
+| tool, thinking off | 8533 | 768 | 91.2 (2.35) | 0.785 | 7488 | 72.3% | 30.324 |
+
+MTP4 improves the code and tool-output medians, with reasoning inside the observed spread. Position-four acceptance on the reasoning workload is 0.305 per draft round. A code run near the 57K compaction threshold and the full Pi suite are running before selecting a default. A later MTP3 recheck will test baseline drift.
