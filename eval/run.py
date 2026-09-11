@@ -87,6 +87,12 @@ def run_task(task: Path, model: str, timeout: int, keep: bool,
             "workdir": None,
         }, "skipped: client cannot attach images"
 
+    if screenshot.exists():
+        # An attachment path is visible to the model. Keep it beside the editable
+        # files so it cannot point the agent at the repository's source fixture.
+        shutil.copy2(screenshot, workdir / screenshot.name)
+        screenshot = workdir / screenshot.name
+
     if client == "opencode":
         cmd = ["opencode", "run", "--dir", str(workdir), "-m", model, "--auto",
                "--title", f"eval {task.name}"]
@@ -102,6 +108,13 @@ def run_task(task: Path, model: str, timeout: int, keep: bool,
         if screenshot.exists():
             cmd += [f"@{screenshot}"]
         cmd += [prompt]
+
+    if sys.platform == "darwin":
+        # The client executes tools with the user's permissions. Protect this
+        # repository while permitting writes to the disposable working directory.
+        policy = ('(version 1) (allow default) (deny file-write* (subpath '
+                  + json.dumps(str(HERE.parent.resolve())) + '))')
+        cmd = ["/usr/bin/sandbox-exec", "-p", policy, *cmd]
 
     started = time.monotonic()
     timed_out = False
@@ -121,17 +134,18 @@ def run_task(task: Path, model: str, timeout: int, keep: bool,
     if timed_out:
         status = "timeout"
 
+    retain = keep or status in ("fail", "timeout")
     result = {
         "task": task.name,
         "status": status,
         "seconds": round(elapsed, 1),
         "verify_exit": verify.returncode,
         "verify_tail": verify.stdout.strip().splitlines()[-12:],
-        "workdir": str(workdir) if keep else None,
+        "workdir": str(workdir) if retain else None,
     }
     if client == "pi":
         result.update(pi_usage(agent_out))
-    if not keep:
+    if not retain:
         shutil.rmtree(workdir, ignore_errors=True)
     return result, agent_out
 

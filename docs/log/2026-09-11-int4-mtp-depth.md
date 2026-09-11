@@ -117,3 +117,7 @@ Six measured repetitions per row, concurrency 1, warm prefix, same fixed corpus 
 | tool, thinking off | 8533 | 768 | 91.2 (2.35) | 0.785 | 7488 | 72.3% | 30.324 |
 
 MTP4 improves the code and tool-output medians, with reasoning inside the observed spread. Position-four acceptance on the reasoning workload is 0.305 per draft round. A code run near the 57K compaction threshold and the full Pi suite are running before selecting a default. A later MTP3 recheck will test baseline drift.
+
+The MTP4 long-context code run completed at 56909 input tokens, 55744 cached, 768 output tokens, thinking off, concurrency 1, six repetitions. Median decode is 72.3 tok/s (sd 1.88), TTFT 1.159 s, draft acceptance 76.9%, and peak observed global VRAM 30.324 GiB. MTP3 at this size is still unmeasured; do not infer a gain from this row alone.
+
+The first MTP4 suite scored 7/8, but the vision failure came from an attachment-path defect in the task runner: the model correctly fixed the source fixture while the verifier checked the untouched temporary copy. The source fixture is restored, the runner is fixed and protected, and a fresh full suite is running. The original result is retained and excluded from model-quality comparison. [Diagnosis and regression](2026-09-11-eval-fixture-escape.md).

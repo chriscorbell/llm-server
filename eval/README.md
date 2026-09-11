@@ -26,6 +26,8 @@ This uses a temporary project, the checked Pi configuration and three generated 
 
 Results land in `eval/results/<timestamp>/`: a `summary.md`, a `summary.json`, and the full agent transcript per task. That directory is gitignored; copy the numbers into a log entry instead.
 
+Attachments are copied into each temporary task directory. On macOS, the client runs with repository writes denied so it cannot alter the source fixtures or verifiers. Failed and timed-out working directories are retained and named in `summary.json`. `python3 eval/test_isolation.py` checks this boundary without contacting the model. [The failure that required it](../docs/log/2026-09-11-eval-fixture-escape.md).
+
 Node 24 and Python 3 are the only requirements, plus Chrome for the vision task. No package installs, so the suite runs offline.
 
 ## The tasks

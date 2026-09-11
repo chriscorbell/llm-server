@@ -25,6 +25,8 @@ No speed, quality or peak-memory measurement. Download started during the MTP2 r
 
 Installed packages in the downloaded image: vLLM `0.29.0+xpu`, PyTorch `2.13.0+xpu`, XPU kernels `0.1.14.1`, Triton `3.7.2+xpu`, AutoRound library `0.14.2`. All four patch scripts exited successfully. This checks source anchors only; no model was loaded.
 
+The running baseline was also inspected: vLLM `0.27.2rc1.dev77+gac7509e2b.xpu`, PyTorch `2.13.0+xpu`, XPU kernels `0.1.12.3`, distribution `triton-xpu` version `3.7.2`. Looking up `triton` by its candidate distribution name initially raised `importlib.metadata.PackageNotFoundError: No package metadata was found for triton`. Enumerating installed distribution names resolved the inspection; this was not an engine failure.
+
 ## What happened
 
 Manifest verification succeeded. Download is in progress.
