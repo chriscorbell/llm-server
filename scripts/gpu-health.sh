@@ -13,4 +13,4 @@ docker ps -a --filter name=qwen38 --format '{{.Names}}\t{{.Status}}\t{{.Image}}'
 echo "=== last 60 container log lines ==="
 docker logs --tail 60 qwen38 2>&1 || echo "no container"
 echo "=== health endpoint ==="
-curl -fsS -m 5 "http://127.0.0.1:${PORT:-8000}/health" && echo " OK" || echo " UNREACHABLE"
+curl -fsS -m 5 "${BASE_URL:-http://100.103.136.98:${PORT:-8000}}/health" && echo " OK" || echo " UNREACHABLE"

@@ -36,6 +36,12 @@ No new throughput or quality result yet. On September 11 at 12:34 UTC the baseli
 
 Preparation: verified both checkouts at `4b82d94`, no server changes, working CPU topology confirms `0-3,32-35` share L3 cache 0. Benchmark Python compilation and CLI argument parsing pass. Live benchmark validation follows.
 
+At 12:40 UTC, the first live validation completed: 8,287 input tokens, 6,656 cached, 1,536 generated tokens, concurrency 1, xhigh, TTFT 0.930 s, decode 58.8 tok/s, acceptance 46.3%. All 6,477 returned characters were reasoning; there was no code output before the token limit. This is not a valid code-output measurement. The sweep will separate non-thinking code/tool output from thinking-on reasoning and use complete Pi tasks for the daily xhigh workload. The measured response and exact request controls are in `eval/results/2026-09-11-tuning/validation-code.json`.
+
+Global VRAM can be sampled without another GPU context: `sudo cat /sys/kernel/debug/dri/0000:4c:00.0/tile0/vram_mm` reports `size` and `usage` in bytes. `scripts/sample-gpu.py` samples that counter and GPU clock every second. During the initial validation the counter reported 31,794,946,048 bytes used of 34,242,297,856 bytes total. This single snapshot is not a peak.
+
+The first screening launcher exited before sending a request with `scripts/bench-arm.sh: line 19: extra[@]: unbound variable`. macOS ships Bash 3.2, where an empty array under `set -u` fails this expansion. Keeping the common `--effort xhigh` argument in the array fixes the launcher without changing request semantics.
+
 ## Outcome
 
 Pending measurements.

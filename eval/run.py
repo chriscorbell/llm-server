@@ -24,6 +24,35 @@ HERE = Path(__file__).resolve().parent
 TASKS_DIR = HERE / "tasks"
 
 
+def pi_usage(transcript: str) -> dict:
+    """Count completed assistant messages once, excluding streamed partial copies."""
+    totals = {"assistant_turns": 0, "output_tokens": 0, "uncached_input_tokens": 0,
+              "cached_input_tokens": 0, "max_prompt_tokens": 0, "tool_calls": 0,
+              "thinking_chars": 0}
+    for line in transcript.splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(event, dict) or event.get("type") != "message_end":
+            continue
+        message = event.get("message", {})
+        if message.get("role") != "assistant":
+            continue
+        usage = message.get("usage") or {}
+        totals["assistant_turns"] += 1
+        totals["output_tokens"] += usage.get("output", 0)
+        totals["uncached_input_tokens"] += usage.get("input", 0)
+        totals["cached_input_tokens"] += usage.get("cacheRead", 0)
+        prompt = sum(usage.get(k, 0) for k in ("input", "cacheRead", "cacheWrite"))
+        totals["max_prompt_tokens"] = max(totals["max_prompt_tokens"], prompt)
+        for part in message.get("content", []):
+            totals["tool_calls"] += part.get("type") == "toolCall"
+            if part.get("type") == "thinking":
+                totals["thinking_chars"] += len(part.get("thinking", ""))
+    return totals
+
+
 def discover(selector: str | None) -> list[Path]:
     tasks = sorted(p for p in TASKS_DIR.iterdir() if (p / "prompt.md").exists())
     if not selector:
@@ -100,6 +129,8 @@ def run_task(task: Path, model: str, timeout: int, keep: bool,
         "verify_tail": verify.stdout.strip().splitlines()[-12:],
         "workdir": str(workdir) if keep else None,
     }
+    if client == "pi":
+        result.update(pi_usage(agent_out))
     if not keep:
         shutil.rmtree(workdir, ignore_errors=True)
     return result, agent_out
