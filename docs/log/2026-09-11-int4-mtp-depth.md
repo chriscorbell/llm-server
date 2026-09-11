@@ -70,3 +70,14 @@ These throughput runs end at the output cap and do not score code correctness. C
 Deployment preparation: `scripts/compose.sh` now loads private `compose/.env` followed by tracked `compose/tuning.env`. The tracked file initially contains the unchanged baseline, `MTP_TOKENS=3` and empty `CPUSET`. This permits measured defaults to be committed on mbp and pulled on the server. Individual arms still use shell overrides, which take precedence. Use the wrapper for subsequent serving commands. This preparation does not change the running container.
 
 Baseline Pi 0.85.1 with the current extension and xhigh passed 8/8 tasks in 280.0 seconds, with 16,409 generated tokens and 63 tool calls. Concurrency 1; each task starts fresh, and observed prompt lengths vary with its tool turns. This is the comparison baseline for complete tasks.
+
+MTP2 started at 12:52:42 UTC and became healthy after approximately four minutes. Startup logs verify `num_speculative_tokens: 2` and 114,062 KV tokens, up 2,553 from MTP3. All other serving parameters are unchanged. SearXNG was not restarted. The command used the new wrapper:
+
+```bash
+ssh vllm 'cd /home/chris/Code/llm-server && env MTP_TOKENS=2 bash scripts/compose.sh --profile a-int4draft up -d --no-deps vllm-a-int4draft'
+bash scripts/bench-arm.sh mtp2
+```
+
+The first code repetition at 8,254 actual input tokens, 768 generated tokens, concurrency 1 and thinking off measured 72.8 tok/s. No conclusion is drawn from this single repetition; the six-repetition screening is running.
+
+The MTP2 six-repetition code result at 8,254 input tokens is 71.2 tok/s (sd 1.11), versus MTP3 84.3 tok/s (sd 2.45) at 8,251 tokens. Both use concurrency 1, thinking off, 768 generated tokens and cached prefixes. Higher aggregate acceptance, 87.1% versus 81.4%, does not compensate for removing the third speculative token. Remaining workloads are still running.
