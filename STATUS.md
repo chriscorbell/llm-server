@@ -4,7 +4,7 @@ Last updated: 2026-09-11. Rewrite the affected lines whenever reality changes. T
 
 ## Current state
 
-Optimization experiments are in progress on September 11. MTP4 is the tracked default on the original pinned engine; repeated MTP3 controls confirm code/tool gains with unchanged cold and cached TTFT. MTP2 was slower and is rejected. [Depth measurements](docs/log/2026-09-11-int4-mtp-depth.md). The 0.29.0 image passed 18/18 short checks and 8/8 Pi tasks but provided no material speed gain, so it is being rolled back. The next [CPU affinity experiment](docs/log/2026-09-11-cpu-affinity.md) alternates unrestricted CPUs and `0-3,32-35` on the original engine with MTP4, then restores unrestricted CPUs. The tracked CPU default remains empty.
+Optimization experiments are in progress on September 11. MTP4 remains the tracked default on the original pinned engine. vLLM 0.29.0 passed correctness checks but provided no material speed gain and was rolled back. One-CCX CPU pinning also showed no repeatable improvement. The current container is healthy on the original image and MTP4, with all 64 CPUs enabled explicitly as `0-63`; recreation will restore empty Docker affinity metadata. A final MTP3/MTP4 comparison now removes the per-run prompt nonce as a source of variation before client-effort measurements.
 
 Profile `a-int4draft` is running and healthy on `vllm`, serving Qwen3.8-27B with vision, tool calling and thinking at 96K context. It is the `a-bf16kv` configuration plus the INT4 draft overlay, which measured 26 to 31% faster decode with the task suite at 8 of 8. `a-bf16kv` is the rollback profile. Reachable at `http://100.103.136.98:8000/v1` with the API key in `compose/.env` on the server.
 
@@ -31,6 +31,8 @@ Pi 0.85.1 is configured on mbp with xhigh thinking, explicit Qwen sampling, a 98
 ## Findings
 
 Each Finding cites the Experiment that produced it. Do not add a Finding without one.
+
+- **Pinning to `0-3,32-35` does not improve this workload.** Three alternating pairs with six measured warm code repetitions per arm, about 8.3K input, 768 generated tokens, thinking off and concurrency 1 gave 90.3 tok/s unrestricted versus 89.6 pinned. Pair changes were +0.3%, -1.0% and -4.2%. Unrestricted CPUs remain selected. Docker update ignores an empty cpuset, so restore all online CPUs explicitly during live experiments and recreate to restore empty metadata. [CPU affinity](docs/log/2026-09-11-cpu-affinity.md)
 
 - **vLLM 0.29.0 is compatible but provides no material measured speed gain here.** Its default XPU V2 runner executes both INT4 draft conversions and passes 18/18 short checks and 8/8 Pi tasks. At concurrency 1, warm code/tool/reasoning decode overlaps the old image's spread, cached TTFT falls about 30 ms, and cold 32.6K TTFT is 18.550 versus 18.606 s. It still needs four patches and holds 1,435 fewer KV tokens. The original digest remains selected. [Serving comparison](docs/log/2026-09-11-vllm029-serving.md)
 

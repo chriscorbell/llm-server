@@ -110,7 +110,7 @@ def _corpus_text(kind):
     return "\n\n".join(parts)
 
 
-def filler(n_tokens, kind="code", corpus=None):
+def filler(n_tokens, kind="code", corpus=None, session_id=None):
     """About n_tokens of realistic text, with a unique prefix to defeat caching.
 
     Roughly 3.6 characters per token for code, which is close enough for a
@@ -119,7 +119,7 @@ def filler(n_tokens, kind="code", corpus=None):
     text = corpus if corpus is not None else _corpus_text(kind)
     want = int(n_tokens * 3.6)
     body = (text * (want // len(text) + 1))[:want]
-    return f"// benchmark session {uuid.uuid4().hex}\n{body}"
+    return f"// benchmark session {session_id or uuid.uuid4().hex}\n{body}"
 
 
 CODE_TASK = """Write a complete Python 3 module implementing these utilities:
@@ -178,6 +178,7 @@ def main():
     ap.add_argument("-n", type=int, default=5)
     ap.add_argument("--thinking", action="store_true", help="leave thinking on (default off for stable timing)")
     ap.add_argument("--warm", action="store_true", help="reuse the same prompt to measure the cached path")
+    ap.add_argument("--prompt-id", help="stable prompt identifier for matched warm comparisons; requires --warm")
     ap.add_argument("--corpus-file", type=Path, help="fixed input corpus, unchanged between comparison arms")
     ap.add_argument("--workload", choices=("summary", "code", "tool"), default="summary")
     ap.add_argument("--effort", choices=("low", "medium", "xhigh"), default="xhigh")
@@ -189,10 +190,13 @@ def main():
     a = ap.parse_args()
     if a.n < 1 or a.gen < 2 or a.prompt_tokens < 1:
         ap.error("repetitions and prompt tokens must be positive; generation must be at least two tokens")
+    if a.prompt_id and not a.warm:
+        ap.error("--prompt-id requires --warm; cold runs need fresh prefixes")
     corpus = a.corpus_file.read_text() if a.corpus_file else _corpus_text(a.corpus)
     if not corpus:
         ap.error("input corpus is empty")
-    fixed = filler(a.prompt_tokens, corpus=corpus) if a.warm else None
+    prompt_id = (a.prompt_id or uuid.uuid4().hex) if a.warm else None
+    fixed = filler(a.prompt_tokens, corpus=corpus, session_id=prompt_id) if a.warm else None
     rows = []
     deltas = {}
     def save():
@@ -201,11 +205,12 @@ def main():
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps({"result": result, "reps": rows}, indent=2))
     result = {"status": "in_progress", "workload": a.workload,
-              "corpus_sha256": hashlib.sha256(corpus.encode()).hexdigest()}
+              "corpus_sha256": hashlib.sha256(corpus.encode()).hexdigest(), "prompt_id": prompt_id}
     for i in range(a.n + 1):  # first is a discarded warmup of the same shape
         body = request_body(a, fixed or filler(a.prompt_tokens, corpus=corpus), i)
         m0 = metrics(a.base_url, a.key)
         row = post_stream(a.base_url, a.key, body)
+        row["request_sha256"] = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()
         m1 = metrics(a.base_url, a.key)
         if i == 0:
             print("warmup complete", flush=True)
