@@ -61,3 +61,5 @@ Per-pair decode medians were 87.2 versus 87.5, 92.5 versus 91.6, and 93.0 versus
 Cleanup restored both Docker and the effective cgroup to all online CPUs, `0-63`. The next container recreation will restore empty Docker metadata through the committed default. A Finding in `STATUS.md` records that this specific CCX pin does not help; it does not rule out every possible CPU optimization.
 
 The benchmark now accepts an explicit warm `--prompt-id` and records complete request hashes. Future affinity pairs use a shared identifier to remove session-prefix variation. The results above predate that refinement and are retained as measured; no small positive gain is promoted from them.
+
+The empty-update behavior was observed with Docker client and server 29.1.3. The subsequent MTP3 container recreation restored empty `HostConfig.CpusetCpus`, while `cpuset.cpus.effective` remained `0-63`, confirming the intended unrestricted runtime state.
