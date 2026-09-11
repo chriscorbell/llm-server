@@ -1,6 +1,6 @@
 # 2026-09-11 Vision task edited the source fixture
 
-Status: in progress, local regression fixed; live validation running
+Status: concluded, regression and live validation passed
 Profile: a-int4draft, MTP4
 
 ## Hypothesis
@@ -42,3 +42,7 @@ The local isolation defect is reproduced and fixed. The original 7/8 result rema
 ## Consequences
 
 Attachments no longer expose source-fixture locations. The model under test cannot write to this repository on mbp. A focused regression protects both properties. No serving setting is promoted on the strength of the invalid vision result.
+
+### Live validation
+
+The corrected MTP4 Pi suite passed 8/8 in 222.7 seconds, generating 13,653 tokens with 49 tool calls, xhigh and concurrency 1. Maximum prompt lengths ranged from 7,621 to 12,689 tokens. This single suite uses fewer generated tokens than the MTP3 run, so its wall-time difference is not a pure engine-speed measurement. No source fixture changed.

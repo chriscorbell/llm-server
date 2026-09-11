@@ -121,3 +121,7 @@ MTP4 improves the code and tool-output medians, with reasoning inside the observ
 The MTP4 long-context code run completed at 56909 input tokens, 55744 cached, 768 output tokens, thinking off, concurrency 1, six repetitions. Median decode is 72.3 tok/s (sd 1.88), TTFT 1.159 s, draft acceptance 76.9%, and peak observed global VRAM 30.324 GiB. MTP3 at this size is still unmeasured; do not infer a gain from this row alone.
 
 The first MTP4 suite scored 7/8, but the vision failure came from an attachment-path defect in the task runner: the model correctly fixed the source fixture while the verifier checked the untouched temporary copy. The source fixture is restored, the runner is fixed and protected, and a fresh full suite is running. The original result is retained and excluded from model-quality comparison. [Diagnosis and regression](2026-09-11-eval-fixture-escape.md).
+
+The corrected MTP4 Pi suite passed 8/8 in 222.7 seconds, generating 13,653 tokens with 49 tool calls, xhigh and concurrency 1. Maximum prompt lengths ranged from 7,621 to 12,689 tokens. This single suite uses fewer generated tokens than the MTP3 run, so its wall-time difference is not a pure engine-speed measurement. No source fixture changed.
+
+Diagnostics are captured in `pre-mtp3-recheck-health.log`. The next arm returns to MTP3 and repeats code at 8K, 32K and 57K, reasoning at 8K, and tool output at 8K.
