@@ -42,6 +42,10 @@ Global VRAM can be sampled without another GPU context: `sudo cat /sys/kernel/de
 
 The first screening launcher exited before sending a request with `scripts/bench-arm.sh: line 19: extra[@]: unbound variable`. macOS ships Bash 3.2, where an empty array under `set -u` fails this expansion. Keeping the common `--effort xhigh` argument in the array fixes the launcher without changing request semantics.
 
+The first six measured baseline code repetitions completed at 8,251 actual input tokens, concurrency 1, thinking off, 768 output tokens, warm cache. Median decode is 84.3 tok/s, standard deviation 2.45 tok/s, median TTFT 0.911 s, overall draft acceptance 81.4%. This establishes a code-output baseline; it is not a configuration improvement. The remaining baseline workloads are still running.
+
+The diagnostic script previously checked unpublished localhost and would print `UNREACHABLE` for a healthy service. Its default health URL now uses the existing Tailscale binding, matching the watchdog and benchmark. This fixes the diagnostic, not the inference server.
+
 ## Outcome
 
 Pending measurements.
@@ -49,3 +53,16 @@ Pending measurements.
 ## Consequences
 
 The server still runs MTP3. No tuning value has been promoted.
+
+### MTP3 baseline screening
+
+Six measured repetitions per row after one discarded warmup. Concurrency 1, cached prefix, fixed corpus SHA-256 `511644b905ef22dda8cd61c1ef32f997522fafbaf527da44bd49727d8dd1becd`. Warm prompts differ between workloads; each run has a fresh session nonce.
+
+| Workload | Actual input tokens | Output tokens | Decode median (sd), tok/s | TTFT, s | Cached tokens | Draft acceptance | Peak global VRAM, GiB |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| code, thinking off | 8251 | 768 | 84.3 (2.45) | 0.911 | 6656 | 81.4% | 30.302 |
+| code, thinking off | 32589 | 768 | 75.9 (4.83) | 0.779 | 31616 | 78.8% | 30.478 |
+| reasoning, xhigh | 8294 | 512 | 68.7 (6.4) | 0.937 | 6656 | 55.0% | 30.478 |
+| tool, thinking off | 8531 | 768 | 84.0 (2.08) | 0.771 | 7488 | 78.7% | 30.479 |
+
+These throughput runs end at the output cap and do not score code correctness. Complete task-suite validation is running.
