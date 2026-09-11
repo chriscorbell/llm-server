@@ -4,7 +4,7 @@ Last updated: 2026-09-11. Rewrite the affected lines whenever reality changes. T
 
 ## Current state
 
-Optimization experiments are in progress on September 11. The MTP3 baseline passed 8/8 Pi tasks in 280.0 seconds. MTP2 passed 18/18 short-output checks but was slower in all four screening workloads and is rejected. Current transition: recreating `a-int4draft` with the temporary MTP4 override, no CPU pinning. The tracked default remains MTP3. [INT4 MTP depth](docs/log/2026-09-11-int4-mtp-depth.md). The pinned 0.29.0 candidate image passed its isolated [source compatibility preflight](docs/log/2026-09-11-vllm029-preflight.md); it has not served requests.
+Optimization experiments are in progress on September 11. The MTP3 baseline passed 8/8 Pi tasks in 280.0 seconds. MTP2 passed 18/18 short-output checks but was slower in all four screening workloads and is rejected. Current arm: `a-int4draft` is healthy with the temporary MTP4 override, no CPU pinning, and 109,067 KV tokens. Its short-output gate passed 18/18. The tracked default remains MTP3. [INT4 MTP depth](docs/log/2026-09-11-int4-mtp-depth.md). The pinned 0.29.0 candidate image passed its isolated [source compatibility preflight](docs/log/2026-09-11-vllm029-preflight.md); it has not served requests.
 
 Profile `a-int4draft` is running and healthy on `vllm`, serving Qwen3.8-27B with vision, tool calling and thinking at 96K context. It is the `a-bf16kv` configuration plus the INT4 draft overlay, which measured 26 to 31% faster decode with the task suite at 8 of 8. `a-bf16kv` is the rollback profile. Reachable at `http://100.103.136.98:8000/v1` with the API key in `compose/.env` on the server.
 

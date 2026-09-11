@@ -96,3 +96,11 @@ Six measured repetitions per row, concurrency 1, warm prefix, same fixed corpus 
 MTP2 is rejected for throughput: all four medians are below MTP3. The extra 2,553 KV tokens do not expand the configured 98,304-token window. No complete Pi suite is run on this slower arm; the repeated short-output gate is recorded separately.
 
 MTP2 passed 18/18 short-output checks: arithmetic, JSON and parsed tool arguments, three repetitions each, thinking off, concurrency 1. These checks do not establish general quality parity. Diagnostics are saved in `pre-mtp4-health.log` before the next restart.
+
+MTP4 started at 13:03:47 UTC. Startup logs verify four speculative tokens and 109,067 KV tokens, 2,442 fewer than MTP3. It passed all 18 repeated short-output checks before the throughput runs. The serving image, patches and other flags remain fixed. The command changes only the depth override:
+
+```bash
+ssh vllm 'cd /home/chris/Code/llm-server && env MTP_TOKENS=4 bash scripts/compose.sh --profile a-int4draft up -d --no-deps vllm-a-int4draft'
+python3 eval/mtp_check.py --out eval/results/2026-09-11-tuning/mtp4-short.json
+bash scripts/bench-arm.sh mtp4
+```
