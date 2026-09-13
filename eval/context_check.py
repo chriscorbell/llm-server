@@ -25,6 +25,9 @@ def main():
     ap.add_argument("--base-url", default="http://100.103.136.98:8000")
     ap.add_argument("--model", default="qwen38")
     ap.add_argument("--engine", choices=("vllm", "llama.cpp"), default="vllm")
+    ap.add_argument("--thinking", action="store_true")
+    ap.add_argument("--effort", choices=("low", "medium", "xhigh"), default="xhigh")
+    ap.add_argument("--max-tokens", type=int, default=512)
     ap.add_argument("--seed", type=int, default=120926)
     args = ap.parse_args()
     key = pi_api_key()
@@ -32,11 +35,19 @@ def main():
         raise SystemExit("No llm-server key in Pi's auth store")
     if args.prompt_tokens < 2048:
         ap.error("Use at least 2048 prompt tokens")
+    if args.max_tokens < 1:
+        ap.error("Use a positive output budget")
     if args.out.exists():
         raise SystemExit("Use a fresh output path to preserve earlier results")
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    result = {"status": "preparing", "concurrency": 1, "thinking": False,
+    result = {"status": "preparing", "concurrency": 1, "thinking": args.thinking,
+              "effort": args.effort if args.thinking else None, "max_tokens": args.max_tokens,
               "target_prompt_tokens": args.prompt_tokens, "seed": args.seed, "rows": []}
+
+    template = {"enable_thinking": args.thinking, "preserve_thinking": True}
+    request_options = {"chat_template_kwargs": template}
+    if args.thinking:
+        request_options["reasoning_effort"] = args.effort
 
     def save():
         args.out.write_text(json.dumps(result, indent=2) + "\n")
@@ -48,8 +59,7 @@ def main():
             return json.load(response)
 
     def tokenize(messages):
-        body = {"model": args.model, "messages": messages,
-                "chat_template_kwargs": {"enable_thinking": False, "preserve_thinking": True}}
+        body = {"model": args.model, "messages": messages, **request_options}
         if args.engine == "llama.cpp":
             rendered = post_json("/apply-template", body)["prompt"]
             return len(post_json("/tokenize", {"content": rendered,
@@ -88,10 +98,10 @@ def main():
         result.update(status="running", expected=expected, tokenized_prompt_tokens=count,
                       record_count=low)
         save()
-        body = {"model": args.model, "messages": messages, "max_tokens": 512,
+        body = {"model": args.model, "messages": messages, "max_tokens": args.max_tokens,
                 "stream": True, "stream_options": {"include_usage": True},
                 "temperature": 0, "top_p": 1, "top_k": 20, "seed": 42,
-                "chat_template_kwargs": {"enable_thinking": False, "preserve_thinking": True}}
+                **request_options}
 
         def run(label, expected_answer):
             before = metrics(args.base_url, key)
@@ -107,6 +117,8 @@ def main():
                 parsed = None
             row["passed"] = (parsed == expected_answer and row["finish_reason"] == "stop"
                              and row["prompt_tokens"] == tokenize(body["messages"]))
+            if args.thinking:
+                row["passed"] = row["passed"] and bool(row["text"]["reasoning"].strip())
             row["decode_tok_s"] = ((row["gen_tokens"] - 1) / (row["total_s"] - row["ttft_s"])
                                    if row["ttft_s"] is not None and row["gen_tokens"] > 1 else None)
             row["effective_prefill_tok_s"] = (row["prompt_tokens"] / row["ttft_s"]
@@ -117,10 +129,14 @@ def main():
                   f"cached {row['cached_tokens']}, TTFT {row['ttft_s']:.3f}s", flush=True)
             return answer
 
-        answer = run("retrieval-cold", expected)
+        run("retrieval-cold", expected)
         run("retrieval-repeated", expected)
         name = next(iter(expected))
-        body["messages"] = messages + [{"role": "assistant", "content": answer},
+        last = result["rows"][-1]["text"]
+        assistant_message = {"role": "assistant", "content": last["content"].strip()}
+        if args.thinking:
+            assistant_message["reasoning_content" if args.engine == "llama.cpp" else "reasoning"] = last["reasoning"]
+        body["messages"] = messages + [assistant_message,
             {"role": "user", "content": f"Now return only the checksum for {name}, with no other text."}]
         run("continuation", expected[name])
         result.update(status="complete", passed=sum(r["passed"] for r in result["rows"]), total=3)

@@ -107,12 +107,16 @@ services:
       - --flash-attn
       - "on"
       - --cache-type-k
-      - f16
+      - ${TURBO_KV_TYPE}
       - --cache-type-v
-      - f16
+      - ${TURBO_KV_TYPE}
       - --jinja
+      - --chat-template-kwargs
+      - '{"enable_thinking":true,"reasoning_effort":"xhigh"}'
       - --reasoning-format
       - deepseek
+      - --reasoning-budget
+      - "-1"
       - --spec-type
       - ${TURBO_SPEC_TYPE}
       - --spec-draft-n-max
