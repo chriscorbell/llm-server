@@ -1,8 +1,10 @@
 # Status
 
-Last updated: 2026-09-11. Rewrite the affected lines whenever reality changes. This file describes the present, never the past.
+Last updated: 2026-09-12. Rewrite the affected lines whenever reality changes. This file describes the present, never the past.
 
 ## Current state
+
+The September 12 FP8 context experiment is in progress. Fresh baseline measurements are being collected on the unchanged 98,304-token FP16 KV configuration. The planned sequence is FP8 at 98,304, then a separate increase to 131,072 after correctness checks. Clients remain at 98,304 until long-context validation passes. [Experiment](docs/log/2026-09-12-fp8-int4draft.md)
 
 The September 11 optimization campaign is complete. The server is healthy on the committed MTP4 default, original pinned engine and unrestricted CPUs. Identical requests confirm a 6.6% warm code-decode gain at 8,240 input tokens, 768 generated tokens, concurrency 1 and thinking off; reasoning throughput is unchanged within the observed spread. [Exact-request confirmation](docs/log/2026-09-11-mtp-fixed-prompt-confirmation.md). The 0.29.0 image and one-CCX CPU pin did not provide material speed gains and were not retained. Pi remains at xhigh by default; `pi --thinking medium` is documented for small edits after two 8/8 task runs at each effort. [Effort comparison](docs/log/2026-09-11-pi-reasoning-effort.md).
 
