@@ -39,6 +39,8 @@ First start takes several minutes while the engine compiles kernels. Watch it wi
 
 `turbo-gguf` serves [DavidAU's Qwen3.8-27B Turbo fine-tune](https://huggingface.co/DavidAU/Qwen3.8-27B-TURBO-Fable-Cold-Fusion-735-882-Heretic-Uncensored-NEO-CODER-MAX-MTP-GGUF) through llama.cpp SYCL. It uses Q6_K weights and the F16 vision projector. The model revision and SHA-256 checksums are in `compose/turbo-model.json`; the engine digest and context are in `compose/turbo.env`. See the [deployment experiment](docs/log/2026-09-13-turbo-gguf.md) and [backend comparison](docs/log/2026-09-13-turbo-sycl.md) for validation and limitations.
 
+The validated configuration uses a 65,536-token window, MTP2, tool calling and image input. It measured 34.8 tok/s on warm code prompts with 4,199 input tokens and 256 generated tokens, thinking off and concurrency 1. Near-limit retrieval passes 3/3 at 63,997 to 64,143 input tokens; Pi's selected coding and image tasks pass 2/2 at medium effort. Sampled peak VRAM is 28.16 GiB. These checks establish a working profile, not a quality ranking against the daily driver. [MTP and capability validation](docs/log/2026-09-13-turbo-mtp.md)
+
 Download once on the server, about 25 GB total. Interrupted downloads resume:
 
 ```bash

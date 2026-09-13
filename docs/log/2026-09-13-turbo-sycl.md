@@ -35,7 +35,7 @@ The completed SYCL comparison uses identical request hashes to the Vulkan run an
 
 SYCL's observed VRAM during the benchmark is 28,768,468,992 bytes, 26.792 GiB. Its cold warm-up processes 4,199 tokens in about 4.7 s before decode. Raw data: `scratch/turbo/sycl-nospec-warm.json` and `scratch/turbo/sycl-nospec-short-checks.json` on mbp. The code corpus is frozen as `scratch/turbo/bench-corpus.py`, SHA-256 `9ae37e8c1bde0e297188695f444c50060e754a8d59dbbd7ff83240a0ddf900bb`, before extending the benchmark's metric parser for llama.cpp.
 
-SYCL not yet measured. Vulkan's completed warm-up generates 256 tokens at 3.95 tok/s after an 8.644 s prefill of 4,199 input tokens, thinking off, concurrency 1. The next warm request still measures 3.95 tok/s. CPU consumption during that request is 27% of one core; GPU memory is 26.7 GiB. No new GPU fault appears.
+Initial observation before the SYCL run: Vulkan's completed warm-up generates 256 tokens at 3.95 tok/s after an 8.644 s prefill of 4,199 input tokens, thinking off, concurrency 1. The next warm request still measures 3.95 tok/s. CPU consumption during that request is 27% of one core; GPU memory is 26.7 GiB. No new GPU fault appears.
 
 ## What happened
 

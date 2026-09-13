@@ -1,6 +1,6 @@
 # 2026-09-13 Turbo Q6_K GGUF on the B70
 
-Status: in progress
+Status: concluded; SYCL selected in the [backend comparison](2026-09-13-turbo-sycl.md)
 Profile: turbo-gguf
 
 ## Hypothesis
@@ -33,7 +33,7 @@ Baseline: [validated 128K vLLM deployment](2026-09-12-context-128k.md). Differen
 
 ## Measurements
 
-Inference not yet measured. Repository metadata gives 22.383 GiB of weights plus 0.864 GiB of projector. F16 KV at 65,536 tokens is approximately 4 GiB before runtime buffers and recurrent state. These are capacity estimates, not measured peak VRAM.
+Initial capacity estimate, before inference: repository metadata gives 22.383 GiB of weights plus 0.864 GiB of projector. F16 KV at 65,536 tokens is approximately 4 GiB before runtime buffers and recurrent state. These are capacity estimates, not measured peak VRAM.
 
 The unchanged vLLM daily driver was measured before the switch with:
 
@@ -77,8 +77,8 @@ The publisher recommends Q6 for tool calling. Its Q8 MTP file is 28.162 GiB befo
 
 ## Outcome
 
-Pending model download and live verification.
+Confirmed that the model fits and runs on this server. Vulkan passes 18/18 short checks but gives only 3.9 tok/s on 4,199-token warm code prompts, 256 generated tokens, thinking off and concurrency 1. The [separate backend experiment](2026-09-13-turbo-sycl.md) selects SYCL at 19.7 tok/s. [MTP2](2026-09-13-turbo-mtp.md) raises that to 34.8 tok/s, passes near-64K retrieval 3/3, and passes two Pi coding/image tasks. Neither test ranks this fine-tune's overall quality against the original Qwen model.
 
 ## Consequences
 
-Added a separate Compose profile, a pinned model manifest and a resumable SHA-256-verifying download script. The current vLLM profile's tuning is unchanged.
+Added a separate Compose profile, a pinned model manifest and a resumable SHA-256-verifying download script. Its final defaults are SYCL, Q6_K, MTP2, vision and 65,536 tokens. The original vLLM profile's tuning is unchanged, and its preserved container is restored after validation. The model and engine files remain downloaded on the server. Switching commands are in the root README.
