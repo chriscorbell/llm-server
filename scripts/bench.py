@@ -75,8 +75,10 @@ def metrics(url, key):
     except Exception:
         return {}
     out = {}
-    for name, labels, value in re.findall(r"^(vllm:spec_decode_\w+_total)\{([^}]*)\}\s+([0-9.e+]+)$", text, re.M):
-        position = re.search(r'position="(\d+)"', labels)
+    for name, labels, value in re.findall(r"^((?:vllm|llamacpp):spec_decode_\w+_total)(?:\{([^}]*)\})?\s+([0-9.e+]+)$", text, re.M):
+        # Both engines expose the same counters; retain the existing result keys.
+        name = "vllm:" + name.split(":", 1)[1]
+        position = re.search(r'position="(\d+)"', labels or "")
         key = name + (":" + position[1] if position else "")
         out[key] = out.get(key, 0) + float(value)
     return out

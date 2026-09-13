@@ -1,6 +1,6 @@
 # 2026-09-13 Turbo Q6_K backend comparison
 
-Status: in progress
+Status: concluded
 Profile: turbo-gguf
 
 ## Hypothesis
@@ -23,9 +23,23 @@ Baseline: [initial Vulkan deployment](2026-09-13-turbo-gguf.md).
 
 ## Measurements
 
+The completed SYCL comparison uses identical request hashes to the Vulkan run and the same actual 4,199-token input, 256 generated tokens, thinking off, concurrency 1 and two warm repetitions:
+
+| Metric | Vulkan | SYCL |
+|---|---:|---:|
+| Median decode | 3.9 tok/s | 19.7 tok/s |
+| Median TTFT | 0.491 s | 0.214 s |
+| Cached prompt tokens | 4,195 | 4,195 |
+| Short checks | 18/18 | 18/18 |
+| Startup to listening | 11.613 s | 75.188 s |
+
+SYCL's observed VRAM during the benchmark is 28,768,468,992 bytes, 26.792 GiB. Its cold warm-up processes 4,199 tokens in about 4.7 s before decode. Raw data: `scratch/turbo/sycl-nospec-warm.json` and `scratch/turbo/sycl-nospec-short-checks.json` on mbp. The code corpus is frozen as `scratch/turbo/bench-corpus.py`, SHA-256 `9ae37e8c1bde0e297188695f444c50060e754a8d59dbbd7ff83240a0ddf900bb`, before extending the benchmark's metric parser for llama.cpp.
+
 SYCL not yet measured. Vulkan's completed warm-up generates 256 tokens at 3.95 tok/s after an 8.644 s prefill of 4,199 input tokens, thinking off, concurrency 1. The next warm request still measures 3.95 tok/s. CPU consumption during that request is 27% of one core; GPU memory is 26.7 GiB. No new GPU fault appears.
 
 ## What happened
+
+The first SYCL startup takes longer than a 50-second readiness probe. An initial correctness command was inadvertently launched after that probe timed out and received `urllib.error.HTTPError: HTTP Error 503: Service Unavailable`. No inference ran in that attempt. Subsequent checks are gated on successful HTTP 200 readiness. The container remains running with zero restarts and reaches thread-pool initialization at 19.375 s; one CPU core remains busy during initialization. Pre-restart diagnostics are saved in `scratch/turbo/sycl-starting-health.log` on the server. No restart was performed.
 
 The Intel image is also b10920 at revision `eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e`, built September 12 at 06:42:58 UTC. It detects `SYCL0: Intel(R) Arc(TM) Pro B70 Graphics`, 32,656 MiB total. Both backend images therefore use the same llama.cpp source revision.
 
@@ -41,8 +55,8 @@ The performance feedback loop is `scripts/bench.py` with `--warm --prompt-id tur
 
 ## Outcome
 
-Pending the SYCL run.
+Confirmed for this pinned checkpoint and workload. Changing the backend raises steady decode about fivefold and preserves the 18 short checks. This identifies the slow Vulkan deployment path, not an individual kernel or a general defect in all Vulkan models. Image and long-context checks remain for the selected profile.
 
 ## Consequences
 
-Added an explicit backend device setting to the profile. The final default is not selected yet.
+Selected the pinned SYCL image and `SYCL0` in `compose/turbo.env`. Keep the Vulkan digest above as a functional but slower fallback. No host kernel or driver changed. MTP is the next isolated experiment.

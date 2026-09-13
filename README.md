@@ -37,7 +37,7 @@ First start takes several minutes while the engine compiles kernels. Watch it wi
 
 ## Turbo GGUF profile
 
-`turbo-gguf` serves [DavidAU's Qwen3.8-27B Turbo fine-tune](https://huggingface.co/DavidAU/Qwen3.8-27B-TURBO-Fable-Cold-Fusion-735-882-Heretic-Uncensored-NEO-CODER-MAX-MTP-GGUF) through llama.cpp Vulkan. It uses Q6_K weights and the F16 vision projector. The model revision and SHA-256 checksums are in `compose/turbo-model.json`; the engine digest and context are in `compose/turbo.env`. See the [deployment experiment](docs/log/2026-09-13-turbo-gguf.md) for validation and limitations.
+`turbo-gguf` serves [DavidAU's Qwen3.8-27B Turbo fine-tune](https://huggingface.co/DavidAU/Qwen3.8-27B-TURBO-Fable-Cold-Fusion-735-882-Heretic-Uncensored-NEO-CODER-MAX-MTP-GGUF) through llama.cpp SYCL. It uses Q6_K weights and the F16 vision projector. The model revision and SHA-256 checksums are in `compose/turbo-model.json`; the engine digest and context are in `compose/turbo.env`. See the [deployment experiment](docs/log/2026-09-13-turbo-gguf.md) and [backend comparison](docs/log/2026-09-13-turbo-sycl.md) for validation and limitations.
 
 Download once on the server, about 25 GB total. Interrupted downloads resume:
 
