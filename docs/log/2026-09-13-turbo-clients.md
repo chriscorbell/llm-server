@@ -30,7 +30,7 @@ Baseline: [Turbo 128K/xhigh validation](2026-09-13-turbo-thinking-128k.md). Conf
 
 ## Measurements
 
-Pending client model listings and authenticated tool round trips. No engine tuning or throughput comparison is planned.
+Both installed clients list the two model IDs. OpenCode default/override effort transport passes 2/2. Pi and OpenCode each pass 1/1 authenticated file-reading/reasoning check at concurrency 1, in 14.377 s and 16.504 s respectively. Full request counts and transcript evidence are below. No engine throughput comparison was performed.
 
 ## What happened
 
@@ -38,7 +38,7 @@ Both auth stores already have the `llm-server` provider. Pi's installed extensio
 
 ## Outcome
 
-Pending live validation.
+Both installed clients can select and use Turbo with their existing authentication, default thinking and a working tool round trip. The 128K context and image declarations match the separately validated server profile.
 
 ## Consequences
 
@@ -53,3 +53,20 @@ Pi lists both `qwen38` and `qwen38-turbo`, each with 131.1K context, 32.8K max o
 The installed OpenCode model passes 2/2 loopback transport checks. With no variant, the outgoing model is `qwen38-turbo` and `reasoning_effort` is `xhigh`; selecting low sends `low`. Both requests carry temperature 1.0, top_p 0.95, top_k 20 and streaming usage. OpenCode caps the request output at 32,000 tokens, below the model declaration of 32,768. The recorder uses a dummy loopback key, does not capture messages/tools, and writes `scratch/turbo-clients/opencode-effort.log`.
 
 Server diagnostics were captured in `scratch/turbo-clients/before-switch.log` before stopping and renaming the daily driver to `qwen38-before-turbo`. The unchanged validated `turbo-gguf` profile is starting for one real file-read/marker check per installed client. Pi uses its existing global config and extensions; OpenCode uses its existing model/auth config with external MCP disabled and only file-reading permission for the test process. Both checks omit an explicit effort override to exercise the default.
+
+### Installed-client live checks
+
+Both clients complete a real authenticated file-reading round trip against the Turbo server, using their installed model entries and existing auth stores. A fresh local fixture contains a random marker unknown to the model until a completed read call. The final answer must match exactly, and the transcript must contain actual reasoning. Neither invocation specifies a thinking/effort override. Concurrency is 1.
+
+| Client | Pass | Wall time | Completed read calls | Reasoning characters | First input tokens | Follow-up cached tokens |
+|---|---|---|---|---|---|---|
+| pi | 1/1 | 14.377 s | 1 | 534 | 4,659 | 4,793 |
+| opencode | 1/1 | 16.504 s | 1 | 527 | 4,449 | 4,634 |
+
+Both clients report zero reasoning tokens in usage, while actual reasoning text is present, so reasoning is verified from transcript content. Stderr is captured in `scratch/turbo-clients/{pi,opencode}/stderr.log`; structured transcripts and result JSON are beside it. These checks cover authentication, selection, reasoning and tool replay. The existing server image/long-context results are retained; no full coding suite or throughput benchmark is repeated.
+
+Turbo is healthy with zero restarts and the watchdog is active. Server logs and GPU diagnostics are captured before stopping it. Restore the preserved daily driver after validation.
+
+### Preservation and diagnostics
+
+After removing only the added model from each installed config in memory, its parsed content exactly matches its pre-change backup. OpenCode recent/favorite/variant state is byte-for-byte unchanged by the live check. Both client stderr logs are empty. All pre-existing edits in the touched repository files remain intact and excluded from the index. Comparing GPU diagnostic message content before/after the client run shows no new xe/Level Zero messages. The original daily driver is starting again.
