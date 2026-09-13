@@ -44,3 +44,22 @@ No serving configuration has changed yet. Benchmark and diagnostic artifacts wil
 ```bash
 ssh vllm 'cd /home/chris/Code/llm-server && git pull --ff-only && python3 scripts/download-turbo.py --manifest compose/uncensored-model.json'
 ```
+
+### Original model baseline
+
+The original model remains active while the pinned files download. `xpu-wedge-watchdog.service` is active and enabled. Before the benchmark, server metrics report zero running and zero queued requests. GPU state and startup logs are saved in `original-health.txt`.
+
+Warm code generation, thinking off, concurrency 1, 4,201 actual input tokens and 384 generated tokens: median decode 87.0 tok/s across three measured repetitions, standard deviation 0.90 tok/s, median TTFT 1.337 s, 1,664 cached tokens, aggregate MTP acceptance 70.7%. This is a short sample, not a broad performance baseline.
+
+```bash
+python3 scripts/bench.py --base-url http://100.103.136.98:8000 --corpus-file scratch/turbo/bench-corpus.py --workload code --prompt-tokens 4096 --gen 384 -n 3 --warm --prompt-id uncensored-sept13 --json eval/results/2026-09-13-uncensored/original-code.json
+# Repeat with --thinking --effort xhigh and original-thinking.json.
+```
+
+The frozen corpus has SHA-256 `9ae37e8c1bde0e297188695f444c50060e754a8d59dbbd7ff83240a0ddf900bb`. The candidate runs will reuse it, the prompt ID and seeds; saved request hashes establish whether complete API requests match.
+
+The original model's xhigh thinking sample measures 73.6 tok/s median, range 65.3 to 80.4 tok/s and standard deviation 7.56 tok/s, at 4,241 input tokens, 384 generated tokens and concurrency 1. Median TTFT is 1.372 s, cached input 1,664 tokens and MTP acceptance 54.6%. All output tokens in these capped requests are reasoning; this measures throughput rather than completed-task quality.
+
+### Saved model selection prepared
+
+`compose/model.env` now selects the candidate directory, loaded after private `.env` by `scripts/compose.sh`. The server still runs the original model until the download finishes and the explicit Compose recreation occurs. No credential or client model-ID change is required. The root README documents initial download, activation and temporary/persistent rollback.

@@ -33,7 +33,35 @@ ssh <hostname> 'cd ~/Code/llm-server && bash scripts/compose.sh --profile a-int4
 
 First start takes several minutes while the engine compiles kernels. Watch it with `docker logs -f qwen38`.
 
-`scripts/compose.sh` loads the server's private `compose/.env`, then `compose/tuning.env` for vLLM and `compose/turbo.env` for the alternative GGUF engine. Configuration changes are committed on the MacBook and pulled on the server; credentials stay in `.env`. Shell variables can override one setting for an experiment. Use this wrapper for subsequent Compose commands so an older value in `.env` cannot silently undo a measured optimization.
+`scripts/compose.sh` loads the server's private `compose/.env`, then `compose/model.env` for the selected vLLM checkpoint, `compose/tuning.env` for vLLM settings and `compose/turbo.env` for the alternative GGUF engine. Configuration changes are committed on the MacBook and pulled on the server; credentials stay in `.env`. Shell variables can override one setting for an experiment. Use this wrapper for subsequent Compose commands so an older value in `.env` cannot silently undo a measured optimization.
+
+## Abliterated GPTQ checkpoint
+
+The selected vLLM checkpoint is [kernelogic's abliterated Qwen3.8-27B](https://huggingface.co/kernelogic/Qwen3.8-27B-Uncensored-GPTQ-Int4-sym-G128-MTP-BF16), GPTQ INT4 with symmetric groups of 128. `compose/uncensored-model.json` pins revision `bd3f8d56b9dc617c995ec5a3ececa486d1d064be` and SHA-256 checksums for all files. `compose/model.env` selects its directory. The API alias remains `qwen38`, so Pi, OpenCode and Hermes use their existing model entries.
+
+Download and verify approximately 19.6 GB once, after the initial server setup. The original SergiioB weights remain available for rollback. The downloader resumes interrupted transfers:
+
+```bash
+ssh vllm 'cd /home/chris/Code/llm-server && python3 scripts/download-turbo.py --manifest compose/uncensored-model.json'
+```
+
+Capture diagnostics before replacing the inference container, then start the selected checkpoint. This interrupts inference and clears the prompt cache:
+
+```bash
+ssh vllm 'cd /home/chris/Code/llm-server && mkdir -p scratch && bash scripts/gpu-health.sh > scratch/before-model-switch.log 2>&1'
+ssh vllm 'cd /home/chris/Code/llm-server && bash scripts/compose.sh --profile a-int4draft up -d --no-deps vllm-a-int4draft'
+```
+
+Wait for `qwen38` to become healthy. The profile retains 131,072 total context, FP8 KV, runtime INT4 draft, MTP4, vision, tools, prefix caching and xhigh thinking. See the [deployment experiment](docs/log/2026-09-13-uncensored-gptq.md) for measured results and remaining limitations.
+
+To temporarily restore the original checkpoint with the same settings, capture diagnostics again and override only its directory:
+
+```bash
+ssh vllm 'cd /home/chris/Code/llm-server && bash scripts/gpu-health.sh > scratch/before-original-restore.log 2>&1'
+ssh vllm 'cd /home/chris/Code/llm-server && MODEL_DIR=/home/chris/models/Qwen3.8-27B-GPTQ-Int4-sym-G128-MTP-BF16 bash scripts/compose.sh --profile a-int4draft up -d --no-deps vllm-a-int4draft'
+```
+
+For a persistent rollback, change `compose/model.env` on mbp, commit and push, then pull on vllm before recreating. A shell override does not update the saved selection.
 
 ## Turbo GGUF profile
 
