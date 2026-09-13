@@ -28,7 +28,15 @@ Baseline deployment: [Q6_K MTP2 at 64K](2026-09-13-turbo-mtp.md). That file's sp
 
 ## Measurements
 
-Not yet measured. The Q8_0 attention-cache payload is approximately 53.125% of F16, before recurrent state and buffers. Doubling context should therefore cost approximately the same KV memory as the prior F16 window. This is an estimate, not a validated capacity.
+At 65,536 context, 4,239 actual input tokens, 384 generated tokens, xhigh and concurrency 1, the exact warm requests measured:
+
+| Metric | F16 KV | Q8_0 KV |
+|---|---|---|
+| Median decode | 35.6 tok/s | 34.2 tok/s |
+| Median cached TTFT | 0.225 s | 0.226 s |
+| MTP acceptance | 82.4% | 79.2% |
+
+Q8_0 passes 18/18 fixed short checks and 2/2 selected Pi xhigh coding/image tasks. Detailed request counts, memory sampling and task results follow below. The initial sizing estimate was a Q8_0 attention-cache payload of 53.125% of F16, before recurrent state and buffers; the subsequent context experiment measures actual capacity.
 
 ## What happened
 
@@ -38,11 +46,11 @@ The previous two hardware/engine reports and current status were read. The serve
 
 ## Outcome
 
-Pending the cache comparison. A context increase will be a separate experiment after this cache format passes.
+Q8_0 preserves correct outputs on the measured reasoning, tool and image checks while freeing memory. The two-repetition warm decode median is 3.9% below F16. Retain Q8_0 and test the context increase separately; broad quality parity is unmeasured.
 
 ## Consequences
 
-The profile has an explicit xhigh thinking default and a configurable KV type. The saved KV/context defaults remain F16 and 65,536 until validation succeeds. No model, engine, kernel or host driver change is planned.
+Promoted `TURBO_KV_TYPE=q8_0` and kept explicit xhigh thinking. Context remained 65,536 for this controlled comparison; the following [128K experiment](2026-09-13-turbo-thinking-128k.md) changes it. Model, engine, kernel and host driver remain pinned.
 
 ### F16 control completed
 

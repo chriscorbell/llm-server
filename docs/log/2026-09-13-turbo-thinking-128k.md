@@ -1,6 +1,6 @@
 # 2026-09-13 Turbo xhigh at 128K context
 
-Status: in progress
+Status: concluded
 Profile: turbo-gguf
 
 ## Hypothesis
@@ -26,7 +26,7 @@ The retrieval check uses temperature 0 and checks actual returned reasoning as w
 
 ## Measurements
 
-Pending. The 64K Q8_0 baseline measured 34.2 tok/s and 0.226 s cached TTFT with 4,239 input tokens, 384 generated tokens, xhigh and concurrency 1. It passed 18/18 short checks and 2/2 selected Pi xhigh coding/image tasks; sampled peak was 26.506 GiB.
+At 131,072 context, warm xhigh decode is 34.1 tok/s with 4,239 input tokens, 384 generated tokens and concurrency 1, versus 34.2 at the 65,536-context Q8_0 baseline. Cached TTFT is 0.229 s versus 0.226 s. Near-limit xhigh retrieval/continuation passes 3/3 and selected Pi xhigh code/image tasks pass 2/2. Sampled peak is 29.256 GiB versus 26.506 GiB at 64K. Full request and task measurements follow below.
 
 ## What happened
 
@@ -34,11 +34,11 @@ Q8_0 passed its separate cache comparison before changing context. The original 
 
 ## Outcome
 
-Pending the 128K run.
+Confirmed on this server. The full 131,072-token window loads, xhigh retrieval/continuation passes at 123,975 to 124,943 input tokens, and selected coding/image tasks pass. Cold near-limit prefill takes 216.848 s; cached repeat takes 1.035 s and continuation 4.660 s to first token.
 
 ## Consequences
 
-The saved context remains 65,536 until the larger window passes. No engine, model, kernel or driver version changes.
+Promoted `TURBO_CONTEXT=131072` with Q8_0 KV and explicit xhigh thinking. Updated README client budgets and the Turbo Finding in STATUS.md. No engine, model, kernel or driver version changes. The original daily driver is restored after validation, with its recovery recorded below.
 
 ### 128K startup and short reasoning benchmark
 
@@ -74,3 +74,17 @@ Pi 0.85.1 passes 2/2 selected tasks at xhigh, temperature 1.0/top_p 0.95, client
 Peak sampled VRAM across 128K initialization, short benchmark, long retrieval and Pi is 29.256 GiB out of 31.891 GiB usable, at 1 Hz. This is sampled global device memory, not an allocation-level peak. The final Turbo container is healthy with zero Docker restarts, and `xpu-wedge-watchdog.service` is active. The sampler is stopped before restoring vLLM so its memory use cannot affect this peak.
 
 Promote `TURBO_CONTEXT=131072` with the validated Q8_0 cache and explicit xhigh default. The unchanged Q6_K weights, projector and pinned SYCL engine pass all requested operating checks. These selected tasks do not establish broad coding-quality parity against another checkpoint. The README now describes the 131,072-token total window, a 32,768-token client output budget and input/compaction headroom. Restore the preserved daily driver after checking that saved defaults match the tested Turbo container.
+
+### Saved defaults and pre-restore diagnostics
+
+After commit `866b869` was pulled, Compose without shell overrides reported `Container qwen38 Running`, retaining start time `2026-09-13T15:30:44.156531816Z`, healthy status and zero restarts. The saved defaults therefore match the tested container.
+
+The GPU-message comparison initially raised `AssertionError` because `dmesg --time-format iso` converted the same boot messages with a one-microsecond timestamp difference. Comparing message content after removing wall-clock timestamps passes; there are no new xe/Level Zero messages. The prior image `find_slot` warnings recur, including `non-consecutive token position 4315 after 4315 for sequence 0 with 488 new tokens`; image validation still passes. The diagnostic captures precede the restoration.
+
+### Daily driver restored
+
+Restored the preserved original container `ff4da06641021d44bc7b468d8ee8fbb17bec4944914f240fe9fc6e8ae765939c`, service `vllm-a-int4draft`, started `2026-09-13T15:41:54.637007765Z`. It is healthy with zero Docker restarts and 205,391 KV tokens; `/v1/models` advertises `qwen38` at 131,072 context. Cached target/draft compilation loads in 1.19 s and 0.05 s. Turbo is stopped; its model weights remain installed and its separate profile now saves 128K/xhigh/Q8_0.
+
+A post-restore check also exercises the extended context evaluator against its vLLM path: `python3 eval/context_check.py --base-url http://vllm:8000 --model qwen38 --engine vllm --thinking --effort xhigh --max-tokens 2048 --prompt-tokens 4096 --out scratch/turbo-thinking/restored-vllm-thinking.json`. All three exact-answer, reasoning and token-count checks pass at 4,077 to 4,430 actual input tokens, concurrency 1. TTFT is 2.845 s cold, 1.268 s repeated, and 1.461 s on continuation. These are restoration/integration checks, not a performance comparison with Turbo.
+
+The Turbo Finding in STATUS.md now records 131,072 context and xhigh reasoning, with the measured limitations above. Existing unrelated MacBook client/documentation edits are preserved and excluded from these commits.
