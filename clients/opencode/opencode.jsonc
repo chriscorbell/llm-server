@@ -8,6 +8,43 @@
         "baseURL": "http://vllm:8000/v1"
       },
       "models": {
+        "qwen38-turbo": {
+          "name": "Qwen3.8-27B Turbo Q6_K",
+          "attachment": true,
+          "reasoning": true,
+          "variants": {
+            "low": {
+              "reasoningEffort": "low"
+            },
+            "medium": {
+              "reasoningEffort": "medium"
+            },
+            "xhigh": {
+              "reasoningEffort": "xhigh"
+            }
+          },
+          "tool_call": true,
+          "limit": {
+            "context": 131072,
+            "input": 98304,
+            "output": 32768
+          },
+          "options": {
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "top_k": 20,
+            "reasoningEffort": "xhigh"
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
         "qwen38": {
           "name": "Qwen3.8-27B GPTQ-INT4",
           "attachment": true,

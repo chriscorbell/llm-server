@@ -2,6 +2,18 @@
 
 Opencode reaches the server over Tailscale at `http://vllm:8000/v1`. The server speaks the OpenAI chat completions API with tool calling and image input.
 
+## Turbo model
+
+The installed provider also includes `llm-server/qwen38-turbo`, displayed as `Qwen3.8-27B Turbo Q6_K`. It has xhigh reasoning by default, low/medium/xhigh variants, image input and tool calling. Its limits are 131,072 total tokens, 98,304 input tokens and 32,768 output tokens, with the same compaction headroom as the original Qwen entry.
+
+First switch the server to `turbo-gguf` using the [server switch commands](../../README.md#turbo-gguf-profile). Restart OpenCode to load the added model, then select it with `/models`, or launch:
+
+```bash
+opencode -m llm-server/qwen38-turbo --variant xhigh
+```
+
+The original `llm-server/qwen38` choice remains available for the `a-int4draft` server profile. Both entries reuse the existing `llm-server` authentication. Selecting a client model does not switch the server profile. T3's provider inventory and running OpenCode process may need the refresh/restart described below.
+
 ## Install
 
 Merge `opencode.jsonc` into `~/.config/opencode/opencode.jsonc` on the MacBook. Keep your existing `permission` and `mcp` blocks; only the `provider` and `model` keys below are ours.
