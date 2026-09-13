@@ -35,11 +35,37 @@ Baseline: [validated 128K vLLM deployment](2026-09-12-context-128k.md). Differen
 
 Inference not yet measured. Repository metadata gives 22.383 GiB of weights plus 0.864 GiB of projector. F16 KV at 65,536 tokens is approximately 4 GiB before runtime buffers and recurrent state. These are capacity estimates, not measured peak VRAM.
 
+The unchanged vLLM daily driver was measured before the switch with:
+
+```bash
+python3 scripts/bench.py --base-url http://vllm:8000 --model qwen38 \
+  --prompt-tokens 4096 --gen 256 --workload code --corpus-file scripts/bench.py \
+  --warm --prompt-id turbo-profile-comparison -n 2 \
+  --json scratch/turbo/vllm-reference.json
+```
+
+At concurrency 1, thinking off and exactly 4,199 actual input tokens, the two warm repetitions produce 256 tokens each at 82.8 and 93.5 tok/s, median 88.2 tok/s, median TTFT 1.339 s and MTP acceptance 72.0%. Both report 1,664 cached tokens. This is a small reference sample, not a quality or controlled engine comparison.
+
 ## What happened
+
+### Temporary switch for validation
+
+The current service's diagnostics are saved in `scratch/turbo/before-switch-health.log` on both machines. A one-second VRAM sampler writes to `scratch/turbo/vram.jsonl` on mbp. The daily-driver container ID is `ff4da06641021d44bc7b468d8ee8fbb17bec4944914f240fe9fc6e8ae765939c`.
+
+For this initial test, preserve its writable layer and compiled kernels instead of removing it:
+
+```bash
+ssh vllm 'docker stop qwen38 && docker rename qwen38 qwen38-before-turbo'
+ssh vllm 'cd ~/Code/llm-server && bash scripts/compose.sh --profile turbo-gguf up -d --no-deps llama-turbo'
+# After collecting evidence and finishing Turbo tests:
+ssh vllm 'docker stop qwen38 && docker rm qwen38 && docker rename qwen38-before-turbo qwen38 && docker start qwen38'
+```
 
 ### Preparation
 
 The pinned image identifies itself as llama.cpp `b10920`, revision `eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e`, built September 12 at 05:55:29 UTC. `--list-devices` detects `Vulkan0: Intel(R) Graphics (BMG G31)` with 32,656 MiB total memory while vLLM remains healthy. Docker Compose validation passes on the server. The MacBook has no Docker CLI, so Compose checks run through SSH.
+
+The downloaded file's header reports GGUF v3, architecture `qwen35`, 866 tensors, 65 blocks including one next-token prediction block, and native context 262,144. Its embedded general name is `Qwen3.8 27B Brainwaves NM HERETIC BR LOA1`, which differs from the filename. The pinned repository file and SHA-256, rather than that inherited display metadata, identify this deployment.
 
 The server was healthy with zero swap use, about 51 GiB available RAM and 1.7 TiB free storage. Both clones were on `main`; the server was clean. The MacBook has pre-existing client and documentation edits, which are outside this change. The two original hardware/engine research reports were read before selecting Vulkan. The upstream Docker documentation lists `server-vulkan`, and its Dockerfile bundles Mesa inside the container. The host's kernel and drivers therefore stay unchanged.
 
