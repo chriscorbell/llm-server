@@ -1,6 +1,6 @@
 # 2026-09-13 Turbo in Pi and OpenCode on mbp
 
-Status: in progress
+Status: concluded
 Profile: turbo-gguf, client configuration
 
 ## Hypothesis
@@ -70,3 +70,9 @@ Turbo is healthy with zero restarts and the watchdog is active. Server logs and 
 ### Preservation and diagnostics
 
 After removing only the added model from each installed config in memory, its parsed content exactly matches its pre-change backup. OpenCode recent/favorite/variant state is byte-for-byte unchanged by the live check. Both client stderr logs are empty. All pre-existing edits in the touched repository files remain intact and excluded from the index. Comparing GPU diagnostic message content before/after the client run shows no new xe/Level Zero messages. The original daily driver is starting again.
+
+### Final state
+
+The original preserved container `ff4da06641021d44bc7b468d8ee8fbb17bec4944914f240fe9fc6e8ae765939c`, service `vllm-a-int4draft`, is restored, started `2026-09-13T16:02:00.653871687Z`, healthy with zero restarts. The watchdog is active and the authenticated model API reports `qwen38` with 131,072 context. Turbo is stopped; its saved server profile and weights are ready.
+
+Pi and OpenCode on mbp now offer `llm-server/qwen38-turbo` in addition to their original choices. Both use existing credentials, xhigh defaults, text/image input, tools and the declared 131,072/32,768 context/output budgets. The client setup guides explain selection and the separate server switch. No hosted-provider, auth, default-model or recent-model setting was replaced.
