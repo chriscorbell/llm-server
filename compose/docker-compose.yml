@@ -80,6 +80,7 @@ services:
       - ${TURBO_MODEL_DIR:-/home/chris/models/Qwen3.8-27B-Turbo-GGUF}:/models:ro
     environment:
       LLAMA_API_KEY: ${API_KEY}
+      UR_L0_ENABLE_RELAXED_ALLOCATION_LIMITS: "1"
     command:
       - --model
       - /models/${TURBO_MODEL_FILE}
@@ -92,7 +93,7 @@ services:
       - --port
       - "8000"
       - --device
-      - Vulkan0
+      - ${TURBO_DEVICE}
       - --n-gpu-layers
       - all
       - --ctx-size

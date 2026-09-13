@@ -50,6 +50,10 @@ At concurrency 1, thinking off and exactly 4,199 actual input tokens, the two wa
 
 ### Temporary switch for validation
 
+The weight download and hash verification took 526.7 s; the projector took 24.6 s. Both files match their pinned SHA-256 values. Startup completes in 11.613 s. The API advertises `qwen38-turbo` at 65,536 tokens with multimodal capability; requests without a key receive HTTP 401. The short correctness suite passes 18/18 at concurrency 1, thinking off, 23 to 291 input tokens and 2 to 39 generated tokens. Raw results: `scratch/turbo/nospec-short-checks.json` on mbp.
+
+The Vulkan run holds 28,622,868,480 bytes of VRAM, 26.657 GiB. The container's Mesa package is `mesa-vulkan-drivers 26.0.8-1ubuntu0.3`. Short output logs show about 4 tok/s, including a 39-token tool call taking 9.985 s with 291 input tokens, 287 cached and thinking off. The container survives and kernel logs show no new `xe` resets or Level Zero faults. Diagnostics are in `scratch/turbo/vulkan-performance-health.log` on both machines; a longer warm benchmark is in progress to distinguish steady throughput from startup effects.
+
 The current service's diagnostics are saved in `scratch/turbo/before-switch-health.log` on both machines. A one-second VRAM sampler writes to `scratch/turbo/vram.jsonl` on mbp. The daily-driver container ID is `ff4da06641021d44bc7b468d8ee8fbb17bec4944914f240fe9fc6e8ae765939c`.
 
 For this initial test, preserve its writable layer and compiled kernels instead of removing it:
