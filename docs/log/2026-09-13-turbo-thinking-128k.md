@@ -39,3 +39,9 @@ Pending the 128K run.
 ## Consequences
 
 The saved context remains 65,536 until the larger window passes. No engine, model, kernel or driver version changes.
+
+### 128K startup and short reasoning benchmark
+
+The model API advertises `qwen38-turbo` with `n_ctx=131072`, Q6_K and native training context 262,144. Docker arguments confirm Q8_0 keys/values, all layers on SYCL0, MTP2 and explicit xhigh thinking. An unauthenticated model-list request returns HTTP 401.
+
+The exact request hashes match the 64K Q8_0 arm. At 4,239 actual input tokens, 4,235 cached, 384 generated tokens and concurrency 1, warm xhigh decode is 34.1 tok/s (34.8 and 33.4), TTFT 0.229 s and MTP acceptance 78.7%. Per-position acceptance is 84.56% and 72.48%. Both outputs contain reasoning, 730 and 443 characters. The two-repetition difference from 34.2 tok/s at 64K is inside the observed spread. Raw evidence: `scratch/turbo-thinking/q8-128k-thinking.json` and `q8-128k-models.json` on mbp. The 124K retrieval check is now running.

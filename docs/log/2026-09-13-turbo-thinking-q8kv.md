@@ -70,3 +70,5 @@ Short arithmetic, Python, lowercase, JSON and declared-tool checks pass 18/18, w
 Sampled peak across Q8_0 at 64K is 26.506 GiB. Raw evidence is `scratch/turbo-thinking/q8-64k-short.json` and `q8-64k-pi/` on mbp. The isolated Pi provider uses a temporary 0600 auth file and removes it after each run.
 
 The cache comparison supports promoting `TURBO_KV_TYPE=q8_0`: these selected tasks retain correct reasoning, tool use and image input, while freeing VRAM for a separate [128K context experiment](2026-09-13-turbo-thinking-128k.md). It does not establish identical logits or broad quality parity with F16. Capture final GPU state before changing context.
+
+The pre-switch GPU capture confirms the Q8_0 container was healthy and no new xe/Level Zero fault appeared. Vision emitted the previously seen `find_slot` warning, including `non-consecutive token position 4315 after 4314 for sequence 0 with 512 new tokens` and `non-consecutive token position 4315 after 4315 for sequence 0 with 488 new tokens`. The image task passed; no restart or workaround was needed. Evidence: server `scratch/turbo-thinking/before-128k.log` and `q8-64k-container.log`.
