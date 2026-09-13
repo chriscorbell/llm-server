@@ -1,6 +1,6 @@
 # 2026-09-13 Deploy the abliterated GPTQ checkpoint
 
-Status: in progress
+Status: concluded
 Profile: a-int4draft, FP8 KV, MTP4
 
 ## Hypothesis
@@ -23,7 +23,7 @@ Run server commands through `ssh vllm` from mbp. Changes are committed and pushe
 
 ## Measurements
 
-No candidate inference measurements yet. Preflight confirms the original container `ff4da06641021d44bc7b468d8ee8fbb17bec4944914f240fe9fc6e8ae765939c` is healthy with zero restarts. Server checkout is clean at `c5777d6`; model filesystem has 1.6 TB available.
+At initial preflight, before candidate inference, the original container `ff4da06641021d44bc7b468d8ee8fbb17bec4944914f240fe9fc6e8ae765939c` is healthy with zero restarts. Server checkout is clean at `c5777d6`; model filesystem has 1.6 TB available. The measured comparison and validation results are appended below.
 
 ## What happened
 
@@ -31,11 +31,11 @@ Chris requested setup after the candidate recommendation. Execution host is mbp/
 
 ## Outcome
 
-Pending download, startup and validation.
+Confirmed for this profile: 18/18 short checks, 8/8 Pi xhigh coding/image tasks, and 3/3 xhigh near-limit retrieval/continuation checks. Kernelogic remains active. Broad coding-quality equivalence and refusal-rate changes were not measured.
 
 ## Consequences
 
-No serving configuration has changed yet. Benchmark and diagnostic artifacts will be retained under `eval/results/2026-09-13-uncensored/` on mbp and the server.
+The saved default now selects the pinned abliterated checkpoint with the existing engine, profile, API alias, credentials and Tailscale-only binding. Original model weights remain available for rollback. Benchmark and diagnostic artifacts are retained under `eval/results/2026-09-13-uncensored/` on mbp and copied to the same relative path on the server. STATUS.md records the active checkpoint and measured validation.
 
 ### Pinned download preparation
 
@@ -93,3 +93,65 @@ At 22:28:07 UTC, all five MTP linears converted successfully to INT4, from 0.85 
 The service became available at approximately 22:30:20 UTC. It is healthy with zero restarts and 205,391 KV tokens. Compilation took 86.53 s for the target and 14.55 s for the draft. The draft LM-head copy converted from 2.54 GB to 0.66 GB INT4 on the first request. Authenticated model discovery reports `qwen38` with `max_model_len: 131072`.
 
 `eval/mtp_check.py` passes 18/18 short checks at concurrency 1 and thinking off, including three parsed tool calls. The startup transcript is retained in `startup.log`; structured results are in `short-checks.json`. The identical-request throughput comparison and full eight-task Pi xhigh suite are now running sequentially.
+
+### Identical-request throughput comparison
+
+All six measured request hashes match between the original and candidate arms. Each arm has three measured repetitions after one discarded warmup. Concurrency is 1 and output is capped at 384 tokens. Both reuse 1,664 input tokens from cache.
+
+| Metric | Original | Abliterated |
+|---|---:|---:|
+| Warm code decode, thinking off, 4,201 input tokens | 87.0 tok/s | 87.1 tok/s |
+| Code decode standard deviation | 0.90 tok/s | 7.08 tok/s |
+| Code median TTFT | 1.337 s | 1.339 s |
+| Code MTP acceptance | 70.7% | 68.5% |
+| Warm xhigh decode, 4,241 input tokens | 73.6 tok/s | 67.9 tok/s |
+| Xhigh decode standard deviation | 7.56 tok/s | 1.18 tok/s |
+| Xhigh median TTFT | 1.372 s | 1.375 s |
+| Xhigh MTP acceptance | 54.6% | 48.2% |
+
+The code median is unchanged within the sample's spread. Xhigh median decode is 7.7% lower, with lower draft acceptance; the original arm's 65.3 to 80.4 tok/s range overlaps the candidate's 65.9 to 67.9 tok/s. Three repetitions do not establish a stable percentage regression. The xhigh requests emit only reasoning before the output cap, so they do not measure completed-task quality. The Pi suite separately checks completed edits.
+
+### Pi coding and vision passed
+
+The installed Pi client completes all eight tasks at xhigh, concurrency 1, using the existing `llm-server/qwen38` entry and authentication. All task verifiers pass. Actual per-task maximum prompts range from 7,875 to 14,094 tokens. Tool calls, returned reasoning and cache hits are present in every task's transcript.
+
+| Task | Result | Elapsed | Maximum input tokens |
+|---|---|---:|---:|
+| TypeScript feature | pass | 25.3 s | 8,156 |
+| TypeScript bug | pass | 20.4 s | 8,108 |
+| TypeScript refactor | pass | 79.4 s | 11,780 |
+| Python feature | pass | 24.1 s | 8,274 |
+| Python bug | pass | 19.6 s | 7,875 |
+| Multi-file trace | pass | 35.1 s | 8,348 |
+| Large source file | pass | 47.0 s | 11,158 |
+| Image-guided CSS | pass | 53.4 s | 14,094 |
+
+The suite confirms completed edits on these fixtures, not broad equivalence with the original model. Results and transcripts are in `pi/`. A separate xhigh archive retrieval/repeat/continuation check is now running near the context limit:
+
+```bash
+python3 eval/context_check.py --prompt-tokens 124000 --thinking --effort xhigh --max-tokens 4096 --out eval/results/2026-09-13-uncensored/context-124k-thinking.json
+```
+
+### Near-limit xhigh validation passed
+
+All three archive checks pass at concurrency 1 and xhigh, with five exact checksums queried across the archive and a continuation about the earliest queried record. Every API input count equals the separately tokenized request, so no silent truncation occurred. This checks synthetic retrieval and continuation, not general coding at the context limit.
+
+| Request | Input tokens | Generated tokens | Cached tokens | TTFT | Decode |
+|---|---:|---:|---:|---:|---:|
+| Cold retrieval | 123,975 | 552 | 0 | 142.581 s | 69.33 tok/s |
+| Repeated retrieval | 123,975 | 504 | 121,472 | 4.986 s | 69.84 tok/s |
+| Continuation | 124,510 | 53 | 121,472 | 5.754 s | 67.72 tok/s |
+
+Cold effective prefill is 869.51 tok/s. Aggregate MTP acceptance over these requests is 92.1%. Peak global VRAM during the context checks is 30.263 GiB, sampled once per second; this is also the peak across startup, the short checks, benchmarks and Pi suite sampled in this run. Repeated checksums are predictable output, so their MTP acceptance should not be generalized to coding.
+
+### Final configuration readback
+
+GPU diagnostic message content is unchanged between pre-switch and final snapshots, with no new xe/Level Zero fault. The watchdog is active and enabled. The experiment's own GPU sampler was stopped after validation.
+
+The server ran Compose with model and tuning shell overrides explicitly removed. Compose reported `Container qwen38 Running` without recreating it. Container ID remains `38d6ea104aefeb9c64f0a366faecea8134e538697671a2a061242f3feae99cc3`, start time remains `2026-09-13T22:26:25.572645569Z`, and it is healthy with zero restarts. This confirms the committed environment files reproduce the validated model and flags. Rendering the original `MODEL_DIR` override also selects the correct retained rollback directory.
+
+```bash
+ssh vllm 'cd /home/chris/Code/llm-server && env -u MODEL_DIR -u VLLM_IMAGE -u MTP_TOKENS -u CPUSET -u KV_DTYPE -u MAX_MODEL_LEN_INT4DRAFT bash scripts/compose.sh --profile a-int4draft up -d --no-deps vllm-a-int4draft'
+```
+
+Use the existing `llm-server/qwen38` entry in Pi or OpenCode; Hermes uses its existing `qwen38` entry. Existing conversations keep their client-side history, but the model switch clears the server's prompt cache. No client configuration change is necessary for this checkpoint swap. Unrelated local client and documentation edits are preserved and excluded from deployment commits.
