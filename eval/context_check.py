@@ -23,6 +23,8 @@ def main():
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--prompt-tokens", type=int, required=True)
     ap.add_argument("--base-url", default="http://100.103.136.98:8000")
+    ap.add_argument("--model", default="qwen38")
+    ap.add_argument("--engine", choices=("vllm", "llama.cpp"), default="vllm")
     ap.add_argument("--seed", type=int, default=120926)
     args = ap.parse_args()
     key = pi_api_key()
@@ -39,13 +41,20 @@ def main():
     def save():
         args.out.write_text(json.dumps(result, indent=2) + "\n")
 
-    def tokenize(messages):
-        body = {"model": "qwen38", "messages": messages,
-                "chat_template_kwargs": {"enable_thinking": False, "preserve_thinking": True}}
-        req = urllib.request.Request(args.base_url + "/tokenize", data=json.dumps(body).encode(),
+    def post_json(path, body):
+        req = urllib.request.Request(args.base_url + path, data=json.dumps(body).encode(),
             headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=120) as response:
-            return json.load(response)["count"]
+            return json.load(response)
+
+    def tokenize(messages):
+        body = {"model": args.model, "messages": messages,
+                "chat_template_kwargs": {"enable_thinking": False, "preserve_thinking": True}}
+        if args.engine == "llama.cpp":
+            rendered = post_json("/apply-template", body)["prompt"]
+            return len(post_json("/tokenize", {"content": rendered,
+                                              "add_special": True})["tokens"])
+        return post_json("/tokenize", body)["count"]
 
     rng = random.Random(args.seed)
     archive = [(f"record_{i:06}", f"{rng.getrandbits(48):012x}")
@@ -79,7 +88,7 @@ def main():
         result.update(status="running", expected=expected, tokenized_prompt_tokens=count,
                       record_count=low)
         save()
-        body = {"model": "qwen38", "messages": messages, "max_tokens": 512,
+        body = {"model": args.model, "messages": messages, "max_tokens": 512,
                 "stream": True, "stream_options": {"include_usage": True},
                 "temperature": 0, "top_p": 1, "top_k": 20, "seed": 42,
                 "chat_template_kwargs": {"enable_thinking": False, "preserve_thinking": True}}

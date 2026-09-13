@@ -33,7 +33,38 @@ ssh <hostname> 'cd ~/Code/llm-server && bash scripts/compose.sh --profile a-int4
 
 First start takes several minutes while the engine compiles kernels. Watch it with `docker logs -f qwen38`.
 
-`scripts/compose.sh` loads the server's private `compose/.env`, then the measured defaults in `compose/tuning.env`. Tuning changes are committed on the MacBook and pulled on the server; credentials stay in `.env`. Shell variables can override one setting for an experiment. Use this wrapper for subsequent Compose commands so an older value in `.env` cannot silently undo a measured optimization.
+`scripts/compose.sh` loads the server's private `compose/.env`, then `compose/tuning.env` for vLLM and `compose/turbo.env` for the alternative GGUF engine. Configuration changes are committed on the MacBook and pulled on the server; credentials stay in `.env`. Shell variables can override one setting for an experiment. Use this wrapper for subsequent Compose commands so an older value in `.env` cannot silently undo a measured optimization.
+
+## Turbo GGUF profile
+
+`turbo-gguf` serves [DavidAU's Qwen3.8-27B Turbo fine-tune](https://huggingface.co/DavidAU/Qwen3.8-27B-TURBO-Fable-Cold-Fusion-735-882-Heretic-Uncensored-NEO-CODER-MAX-MTP-GGUF) through llama.cpp Vulkan. It uses Q6_K weights and the F16 vision projector. The model revision and SHA-256 checksums are in `compose/turbo-model.json`; the engine digest and context are in `compose/turbo.env`. See the [deployment experiment](docs/log/2026-09-13-turbo-gguf.md) for validation and limitations.
+
+Download once on the server, about 25 GB total. Interrupted downloads resume:
+
+```bash
+ssh vllm 'cd ~/Code/llm-server && python3 scripts/download-turbo.py'
+ssh vllm 'cd ~/Code/llm-server && bash scripts/compose.sh --profile turbo-gguf pull llama-turbo'
+```
+
+Only one profile fits on the GPU. Switching interrupts inference and clears the current prompt cache. Capture diagnostics first, then replace only the inference container:
+
+```bash
+ssh vllm 'cd ~/Code/llm-server && mkdir -p scratch && bash scripts/gpu-health.sh > scratch/before-profile-switch.log 2>&1'
+ssh vllm 'docker stop qwen38 && docker rm qwen38'
+ssh vllm 'cd ~/Code/llm-server && bash scripts/compose.sh --profile turbo-gguf up -d --no-deps llama-turbo'
+```
+
+Wait for `docker ps` to show `qwen38` as healthy. The API remains `http://vllm:8000/v1` with the existing key; select model `qwen38-turbo` in your client. Set its context window to 65,536 tokens and leave room for generated output and tool results. The default client's `qwen38` model entry still describes the vLLM daily driver at 131,072 tokens, so it should not be used for this profile.
+
+Restore the daily driver:
+
+```bash
+ssh vllm 'cd ~/Code/llm-server && bash scripts/gpu-health.sh > scratch/before-profile-restore.log 2>&1'
+ssh vllm 'docker stop qwen38 && docker rm qwen38'
+ssh vllm 'cd ~/Code/llm-server && bash scripts/compose.sh --profile a-int4draft up -d --no-deps vllm-a-int4draft'
+```
+
+Use `qwen38` in the client again after startup. SearXNG keeps running during both switches. The recovery watchdog follows the shared container name and health URL.
 
 ## Credit
 

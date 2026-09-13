@@ -19,6 +19,7 @@ ap = argparse.ArgumentParser(description=__doc__)
 ap.add_argument("--out", required=True, type=Path)
 ap.add_argument("--repetitions", type=int, default=3)
 ap.add_argument("--base-url", default="http://100.103.136.98:8000")
+ap.add_argument("--model", default="qwen38")
 a = ap.parse_args()
 key = pi_api_key()
 if not key:
@@ -34,7 +35,7 @@ cases = [
 rows = []
 for rep in range(a.repetitions):
     for name, prompt, expected in cases:
-        body = {"model": "qwen38", "messages": [{"role": "user", "content": prompt}],
+        body = {"model": a.model, "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0, "top_p": 1, "top_k": 20, "max_tokens": 128,
                 "seed": 42, "chat_template_kwargs": {"enable_thinking": False}}
         if name == "tool":

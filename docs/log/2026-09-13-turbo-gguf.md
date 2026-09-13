@@ -39,6 +39,8 @@ Inference not yet measured. Repository metadata gives 22.383 GiB of weights plus
 
 ### Preparation
 
+The pinned image identifies itself as llama.cpp `b10920`, revision `eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e`, built September 12 at 05:55:29 UTC. `--list-devices` detects `Vulkan0: Intel(R) Graphics (BMG G31)` with 32,656 MiB total memory while vLLM remains healthy. Docker Compose validation passes on the server. The MacBook has no Docker CLI, so Compose checks run through SSH.
+
 The server was healthy with zero swap use, about 51 GiB available RAM and 1.7 TiB free storage. Both clones were on `main`; the server was clean. The MacBook has pre-existing client and documentation edits, which are outside this change. The two original hardware/engine research reports were read before selecting Vulkan. The upstream Docker documentation lists `server-vulkan`, and its Dockerfile bundles Mesa inside the container. The host's kernel and drivers therefore stay unchanged.
 
 The publisher recommends Q6 for tool calling. Its Q8 MTP file is 28.162 GiB before the 0.864 GiB projector, KV and buffers, so Q6 leaves a more useful context budget. Published quality and speed claims have not been verified here.
