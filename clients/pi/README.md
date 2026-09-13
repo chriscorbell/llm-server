@@ -27,7 +27,7 @@ pi --list-models qwen38
 
 The symlink keeps the installed extension identical to the checked one; edit it here and restart Pi. The `.pi/prompts/` templates in the repository root load only when Pi runs from this repository and the project is trusted.
 
-The model declares the server's real 98,304-token window. Pi begins compaction above 57,344 estimated context tokens, reserving 32,768 for the response plus 8,192 tokens of headroom.
+The model declares the server's validated 131,072-token window. Pi begins compaction above 90,112 estimated context tokens, reserving 32,768 for the response plus 8,192 tokens of headroom.
 
 Sampling is explicit because Qwen's thinking preset and MTP acceptance both depend on it. The model supports low, medium and xhigh effort. xhigh is the daily-driver default; unsupported Pi levels are hidden.
 

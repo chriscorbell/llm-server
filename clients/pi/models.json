@@ -26,7 +26,7 @@
             "max": null
           },
           "input": ["text", "image"],
-          "contextWindow": 98304,
+          "contextWindow": 131072,
           "maxTokens": 32768,
           "samplingParams": {
             "temperature": 1.0,
