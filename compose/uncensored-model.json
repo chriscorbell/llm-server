@@ -1,0 +1,82 @@
+{
+  "repo": "kernelogic/Qwen3.8-27B-Uncensored-GPTQ-Int4-sym-G128-MTP-BF16",
+  "revision": "bd3f8d56b9dc617c995ec5a3ececa486d1d064be",
+  "directory": "Qwen3.8-27B-Uncensored-GPTQ-Int4-sym-G128-MTP-BF16",
+  "files": [
+    {
+      "name": "README.md",
+      "size": 5691,
+      "sha256": "223a932a9f001ab998031d21883081be0591d8e12ef562f7f11e71fe11e125ca"
+    },
+    {
+      "name": "chat_template.jinja",
+      "size": 8952,
+      "sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041"
+    },
+    {
+      "name": "config.json",
+      "size": 5090,
+      "sha256": "fb33e3470b90fe5d85f7d1d568c4ebcb4bbe33b4e87e1fa61ced73ba6cb8e24e"
+    },
+    {
+      "name": "generation_config.json",
+      "size": 214,
+      "sha256": "b8eb74d15e0a56623d00ccd14950a4bb87fabbf84b5cc030dcc904b899fb1eb5"
+    },
+    {
+      "name": "model-00001-of-00005.safetensors",
+      "size": 3516828472,
+      "sha256": "30c8e2b1c82cdcc840848b5c98bafe2f74269b1e6472a053ce7d7b2d002f39a7"
+    },
+    {
+      "name": "model-00002-of-00005.safetensors",
+      "size": 4278206560,
+      "sha256": "d8b507c370f0f51cbb923f8779aa4b166ea25c710160ff03c867d569eb40fe32"
+    },
+    {
+      "name": "model-00003-of-00005.safetensors",
+      "size": 4258595144,
+      "sha256": "5cf715332d33b2edd804a7ce0f40d75df8112f0c126cbef0139f8a63f04ac521"
+    },
+    {
+      "name": "model-00004-of-00005.safetensors",
+      "size": 4284981464,
+      "sha256": "0100cb426ae68543492efb3654a5754edb49088f4ac5f4bcd454273d9c1fa0d4"
+    },
+    {
+      "name": "model-00005-of-00005.safetensors",
+      "size": 3220838576,
+      "sha256": "bfda560b2111a0bfee0cbbd5b8e6821124bf44e1f104bae5a859477beade5ed7"
+    },
+    {
+      "name": "model.safetensors.index.json",
+      "size": 229820,
+      "sha256": "d511a969b32a16f1890326dadd4d04039779cebce7458b8e5d2ce7f3ce2550ed"
+    },
+    {
+      "name": "processor_config.json",
+      "size": 1191,
+      "sha256": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1"
+    },
+    {
+      "name": "quant_log.csv",
+      "size": 19303,
+      "sha256": "70b94ace5933c07c77a9f304eda5177defdcd0d60ce6fbe3308d49c0a7fac037"
+    },
+    {
+      "name": "quantize_config.json",
+      "size": 1174,
+      "sha256": "4da1586adb3017e3beee54de47694093a7dce0b4f71a19f98022fe3b16ec49a3"
+    },
+    {
+      "name": "tokenizer.json",
+      "size": 19989424,
+      "sha256": "f399b3cd12fa270d51457bb749fb30863521e8359b8a27059c71b6c2f7d6dd6c"
+    },
+    {
+      "name": "tokenizer_config.json",
+      "size": 1165,
+      "sha256": "792fa3f0cb88b111e54ef3134c873531008c4df471d108da17903426e308aa7b"
+    }
+  ]
+}

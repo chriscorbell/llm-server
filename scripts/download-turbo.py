@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download and verify the pinned Turbo GGUF and vision projector on vllm."""
+"""Download and verify pinned model files on vllm; defaults to Turbo GGUF."""
 import argparse
 import hashlib
 import json
@@ -19,10 +19,14 @@ def verified(path, spec):
 
 
 def main():
-    manifest = json.loads((Path(__file__).resolve().parents[1] / "compose/turbo-model.json").read_text())
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--directory", type=Path, default=Path.home() / "models" / manifest["directory"])
+    parser.add_argument("--manifest", type=Path,
+                        default=Path(__file__).resolve().parents[1] / "compose/turbo-model.json")
+    parser.add_argument("--directory", type=Path)
     args = parser.parse_args()
+    manifest = json.loads(args.manifest.read_text())
+    if args.directory is None:
+        args.directory = Path.home() / "models" / manifest["directory"]
     args.directory.mkdir(parents=True, exist_ok=True)
     for spec in manifest["files"]:
         target = args.directory / spec["name"]
