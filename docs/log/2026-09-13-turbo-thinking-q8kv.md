@@ -1,6 +1,6 @@
 # 2026-09-13 Turbo xhigh thinking and Q8 KV
 
-Status: in progress
+Status: concluded
 Profile: turbo-gguf
 
 ## Hypothesis
@@ -53,3 +53,20 @@ An API request omitting all thinking/effort options returned the correct `7/22` 
 Raw evidence: `scratch/turbo-thinking/f16-64k-thinking.json`, `f16-default-thinking.json`, `f16-props.json`, and `vram.jsonl` on mbp. The watchdog is `xpu-wedge-watchdog.service` and is active; there is no `llm-gpu-watchdog.timer`.
 
 Next, capture GPU state and replace only F16 KV with Q8_0 at the same 65,536-token window.
+
+### Q8_0 at 64K speed check
+
+The exact two request SHA-256 values match the F16 arm. At the same 4,239 input tokens, 4,235 cached, 384 generated, xhigh and concurrency 1, Q8_0 decode is 34.2 tok/s (33.9 and 34.5), TTFT 0.226 s and MTP acceptance 79.2%; per-position acceptance is 87.54% and 70.37%. Reasoning is present in both outputs (1,652 and 443 characters). Sampled peak during the measured requests is 26.412 GiB. This is 3.9% lower decode over two repetitions; it is not a claim about task-completion speed because generated text differs. Code and image checks are next.
+
+### Q8_0 at 64K correctness completed
+
+Short arithmetic, Python, lowercase, JSON and declared-tool checks pass 18/18, with thinking disabled only for this fixed regression suite. Pi 0.85.1 passes both selected tasks with xhigh reasoning and temperature 1.0/top_p 0.95:
+
+| Task | Pass | Wall time | Maximum input tokens | Tool calls | Reasoning characters |
+|---|---|---|---|---|---|
+| 02-ts-fix-bug | 1/1 | 25.2 s | 6517 | 5 | 604 |
+| 08-vision-css | 1/1 | 39.3 s | 7950 | 4 | 1573 |
+
+Sampled peak across Q8_0 at 64K is 26.506 GiB. Raw evidence is `scratch/turbo-thinking/q8-64k-short.json` and `q8-64k-pi/` on mbp. The isolated Pi provider uses a temporary 0600 auth file and removes it after each run.
+
+The cache comparison supports promoting `TURBO_KV_TYPE=q8_0`: these selected tasks retain correct reasoning, tool use and image input, while freeing VRAM for a separate [128K context experiment](2026-09-13-turbo-thinking-128k.md). It does not establish identical logits or broad quality parity with F16. Capture final GPU state before changing context.
