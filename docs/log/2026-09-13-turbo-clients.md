@@ -47,3 +47,9 @@ Both clients have a separate Turbo selection. Existing default-model settings ar
 ### Installed model listings
 
 Pi lists both `qwen38` and `qwen38-turbo`, each with 131.1K context, 32.8K max output, thinking and images. OpenCode lists both `llm-server/qwen38` and `llm-server/qwen38-turbo`. This confirms the installed configuration parses; authentication and actual model requests are checked next.
+
+### Effort transport and temporary server switch
+
+The installed OpenCode model passes 2/2 loopback transport checks. With no variant, the outgoing model is `qwen38-turbo` and `reasoning_effort` is `xhigh`; selecting low sends `low`. Both requests carry temperature 1.0, top_p 0.95, top_k 20 and streaming usage. OpenCode caps the request output at 32,000 tokens, below the model declaration of 32,768. The recorder uses a dummy loopback key, does not capture messages/tools, and writes `scratch/turbo-clients/opencode-effort.log`.
+
+Server diagnostics were captured in `scratch/turbo-clients/before-switch.log` before stopping and renaming the daily driver to `qwen38-before-turbo`. The unchanged validated `turbo-gguf` profile is starting for one real file-read/marker check per installed client. Pi uses its existing global config and extensions; OpenCode uses its existing model/auth config with external MCP disabled and only file-reading permission for the test process. Both checks omit an explicit effort override to exercise the default.
