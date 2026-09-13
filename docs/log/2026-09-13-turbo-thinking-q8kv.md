@@ -43,3 +43,13 @@ Pending the cache comparison. A context increase will be a separate experiment a
 ## Consequences
 
 The profile has an explicit xhigh thinking default and a configurable KV type. The saved KV/context defaults remain F16 and 65,536 until validation succeeds. No model, engine, kernel or host driver change is planned.
+
+### F16 control completed
+
+F16 at 65,536 context, concurrency 1, xhigh, temperature 1.0 and top_p 0.95: warm code decode is 35.6 tok/s (35.4 and 35.8), TTFT 0.225 s, 4,239 actual input tokens, 4,235 cached, 384 output tokens per repetition. MTP acceptance is 82.4%, with per-position acceptance 88.62% and 75.52%. Both outputs include reasoning (730 and 443 characters); the fixed output budget truncates the requested full module, so this is a speed check. Sampled peak VRAM so far is 28.064 GiB at 1 Hz. Startup reports model loaded after 73.705 s.
+
+An API request omitting all thinking/effort options returned the correct `7/22` probability, 536 reasoning characters, 210 generated tokens and a normal stop; 83 input tokens, TTFT 1.198 s. The model template explicitly defaults to xhigh. The CLI prints the harmless warning `Setting 'enable_thinking' via --chat-template-kwargs is deprecated. Use --reasoning on / --reasoning off instead.` The requested setting still works.
+
+Raw evidence: `scratch/turbo-thinking/f16-64k-thinking.json`, `f16-default-thinking.json`, `f16-props.json`, and `vram.jsonl` on mbp. The watchdog is `xpu-wedge-watchdog.service` and is active; there is no `llm-gpu-watchdog.timer`.
+
+Next, capture GPU state and replace only F16 KV with Q8_0 at the same 65,536-token window.
