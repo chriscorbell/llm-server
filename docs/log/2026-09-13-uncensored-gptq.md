@@ -63,3 +63,25 @@ The original model's xhigh thinking sample measures 73.6 tok/s median, range 65.
 ### Saved model selection prepared
 
 `compose/model.env` now selects the candidate directory, loaded after private `.env` by `scripts/compose.sh`. The server still runs the original model until the download finishes and the explicit Compose recreation occurs. No credential or client model-ID change is required. The root README documents initial download, activation and temporary/persistent rollback.
+
+### Download and preflight passed
+
+All 15 files passed pinned size and SHA-256 verification. The five weight shards took 47.5, 233.5, 228.4, 209.9 and 135.5 seconds respectively, including verification. `scripts/verify-gptq.py` reads the actual Safetensors headers without GPU allocation; it confirms 400 quantized body tensors, 333 vision tensors and all 15 MTP tensors in BF16. The original checkpoint passes the same metadata check.
+
+At 22:25 UTC the original service has zero running or queued requests, zero restarts and an active watchdog. Logs and GPU state are saved in `pre-switch-health.txt` and `pre-switch-container.log`. The candidate is ready for explicit recreation with the saved model selection. No model weights will be removed.
+
+```bash
+ssh vllm 'cd /home/chris/Code/llm-server && python3 scripts/verify-gptq.py /home/chris/models/Qwen3.8-27B-Uncensored-GPTQ-Int4-sym-G128-MTP-BF16'
+ssh vllm 'cd /home/chris/Code/llm-server && bash scripts/compose.sh --profile a-int4draft up -d --no-deps vllm-a-int4draft'
+```
+
+### Candidate startup
+
+The replacement container is `38d6ea104aefeb9c64f0a366faecea8134e538697671a2a061242f3feae99cc3`, started `2026-09-13T22:26:25.572645569Z`. Startup confirms GPTQ, float16 compute, FP8 KV, 131,072 context, MTP4, vision architecture, prefix caching, one sequence and the existing tool/reasoning parsers. Four runtime patches applied. Initialization and inference checks are pending.
+
+Transformers emits the existing documentation diagnostics below while continuing initialization. These are not GPU faults or model-load failures:
+
+```text
+[ERROR] `min_frames` is part of Qwen3VLVideoProcessorInitKwargs, but not documented. Make sure to add it to the docstring of the function in /opt/venv/lib/python3.12/site-packages/transformers/models/qwen3_vl/video_processing_qwen3_vl.py.
+[ERROR] `max_frames` is part of Qwen3VLVideoProcessorInitKwargs, but not documented. Make sure to add it to the docstring of the function in /opt/venv/lib/python3.12/site-packages/transformers/models/qwen3_vl/video_processing_qwen3_vl.py.
+```
