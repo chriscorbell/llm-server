@@ -85,3 +85,11 @@ Transformers emits the existing documentation diagnostics below while continuing
 [ERROR] `min_frames` is part of Qwen3VLVideoProcessorInitKwargs, but not documented. Make sure to add it to the docstring of the function in /opt/venv/lib/python3.12/site-packages/transformers/models/qwen3_vl/video_processing_qwen3_vl.py.
 [ERROR] `max_frames` is part of Qwen3VLVideoProcessorInitKwargs, but not documented. Make sure to add it to the docstring of the function in /opt/venv/lib/python3.12/site-packages/transformers/models/qwen3_vl/video_processing_qwen3_vl.py.
 ```
+
+At 22:28:07 UTC, all five MTP linears converted successfully to INT4, from 0.85 GB to 0.22 GB. The shared target embedding and verification head loaded normally. Engine weight allocation is 17.66 GiB, matching the original profile's recorded allocation; attention cache blocks remain 1,664 tokens. The engine is compiling, with zero container restarts.
+
+### Healthy and short checks passed
+
+The service became available at approximately 22:30:20 UTC. It is healthy with zero restarts and 205,391 KV tokens. Compilation took 86.53 s for the target and 14.55 s for the draft. The draft LM-head copy converted from 2.54 GB to 0.66 GB INT4 on the first request. Authenticated model discovery reports `qwen38` with `max_model_len: 131072`.
+
+`eval/mtp_check.py` passes 18/18 short checks at concurrency 1 and thinking off, including three parsed tool calls. The startup transcript is retained in `startup.log`; structured results are in `short-checks.json`. The identical-request throughput comparison and full eight-task Pi xhigh suite are now running sequentially.
