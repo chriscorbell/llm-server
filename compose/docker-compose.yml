@@ -148,7 +148,7 @@ services:
         --quantization gptq
         --dtype float16
         --kv-cache-dtype ${KV_DTYPE:-auto}
-        --max-model-len ${MAX_MODEL_LEN_BF16KV}
+        --max-model-len ${MAX_MODEL_LEN_INT4DRAFT:-${MAX_MODEL_LEN_BF16KV}}
         --gpu-memory-utilization ${GPU_UTIL}
         --max-num-seqs ${MAX_NUM_SEQS}
         --max-num-batched-tokens ${MAX_BATCHED_TOKENS}
