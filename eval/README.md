@@ -26,6 +26,14 @@ This uses a temporary project, the checked Pi configuration and three generated 
 
 Results land in `eval/results/<timestamp>/`: a `summary.md`, a `summary.json`, and the full agent transcript per task. That directory is gitignored; copy the numbers into a log entry instead.
 
+Check that a larger server window retrieves records across a measured prompt and preserves them through a cached continuation:
+
+```bash
+python3 eval/context_check.py --prompt-tokens 126000 --out eval/results/context-126k.json
+```
+
+This requires a server limit above the requested prompt length plus 512 output tokens and a short follow-up. The check uses `/tokenize` to size synthetic archive records, verifies five checksums spread across the prompt, repeats the same request and asks a follow-up about an early record. It records exact API input counts, TTFT, decode and MTP counters. It does not measure general coding quality. Use a fresh output path for each run; the script refuses to overwrite earlier results.
+
 Attachments are copied into each temporary task directory. On macOS, the client runs with repository writes denied so it cannot alter the source fixtures or verifiers. Failed and timed-out working directories are retained and named in `summary.json`. `python3 eval/test_isolation.py` checks this boundary without contacting the model. [The failure that required it](../docs/log/2026-09-11-eval-fixture-escape.md).
 
 Set `PI_LLM_SERVER_LOG` to an absolute output path to collect the extension's request timings and cache counts. The runner collects these outside the protected repository and appends them to that path after each task. Token and tool-call totals also come from completed assistant messages in the saved transcript.
