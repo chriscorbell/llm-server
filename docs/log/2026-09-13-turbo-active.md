@@ -1,6 +1,6 @@
 # 2026-09-13 Activate Turbo on the server
 
-Status: in progress
+Status: concluded
 Profile: turbo-gguf
 
 ## Hypothesis
@@ -20,7 +20,7 @@ Baseline: [128K thinking validation](2026-09-13-turbo-thinking-128k.md) and [ins
 
 ## Measurements
 
-Pending health, model/context discovery and a short reasoning request. No throughput benchmark or task suite is repeated.
+Container start: `2026-09-13T16:22:57.835661165Z`; model loaded after 76.339 s. Health passes and authenticated discovery advertises `qwen38-turbo` with 131,072 context. A default-thinking arithmetic request passes 1/1 with 69 input tokens, 77 generated tokens, TTFT 2.109 s and total time 4.179 s at concurrency 1. No throughput benchmark or task suite is repeated.
 
 ## What happened
 
@@ -28,7 +28,7 @@ Execution host is mbp/Darwin; all server commands use SSH to `vllm`. The server 
 
 ## Outcome
 
-Pending startup verification.
+Turbo is active and healthy. Its model/context discovery and short reasoning request pass. Leave it running.
 
 ## Consequences
 
@@ -40,3 +40,9 @@ To roll back this preserved standby after capturing GPU diagnostics:
 ssh vllm 'cd ~/Code/llm-server && bash scripts/gpu-health.sh > scratch/turbo-active/before-rollback.log 2>&1'
 ssh vllm 'docker stop qwen38 && docker rm qwen38 && docker rename qwen38-vllm-standby qwen38 && docker start qwen38'
 ```
+
+### Activation verified
+
+The API returns the correct `323` answer with 177 reasoning characters and a normal stop when the request omits all thinking/effort overrides. Container arguments verify xhigh defaults, 131,072 context and Q8_0 keys/values. The `llama-turbo` service is healthy with zero restarts and `unless-stopped` policy. `qwen38-vllm-standby` is stopped, and `xpu-wedge-watchdog.service` is active. GPU diagnostic message content is unchanged across the switch, with no new xe/Level Zero faults. Raw evidence is in `scratch/turbo-active/` on mbp and the server.
+
+STATUS.md now identifies Turbo as active, records its actual engine/model/settings, and labels the vLLM settings as the stopped rollback profile. No client default, credential, network, driver or kernel change was made.
