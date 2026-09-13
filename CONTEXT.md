@@ -34,6 +34,10 @@ The Gated DeltaNet layers of Qwen3.8's hybrid attention. Forty-eight of the sixt
 
 The VRAM left for the key-value cache after weights, activations, and the vision tower. It sets the maximum context length. Every quantization decision is ultimately a trade between weight precision and KV budget.
 
+## Prefix cache block
+
+A unit of conversation-prefix reuse that pairs full-attention KV data with a GDN recurrent-state checkpoint. Only completed blocks can be reused, so a repeated prompt may still need uncached prefill for its tail.
+
 ## Task suite
 
 The fixed set of pass/fail coding tasks in `eval/` used to score a Profile's real behavior, as opposed to its speed. Each task has a test that decides the outcome without human judgment. One task requires reading a screenshot, which exercises vision.
