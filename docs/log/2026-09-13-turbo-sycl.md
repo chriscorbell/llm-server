@@ -27,6 +27,10 @@ SYCL not yet measured. Vulkan's completed warm-up generates 256 tokens at 3.95 t
 
 ## What happened
 
+The Intel image is also b10920 at revision `eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e`, built September 12 at 06:42:58 UTC. It detects `SYCL0: Intel(R) Arc(TM) Pro B70 Graphics`, 32,656 MiB total. Both backend images therefore use the same llama.cpp source revision.
+
+The completed Vulkan benchmark records 3.9 tok/s median, 0.491 s median TTFT, 4,199 input tokens and 4,195 cached tokens for both measured 256-token code responses, thinking off and concurrency 1. Raw data: `scratch/turbo/vulkan-nospec-warm.json` on mbp.
+
 The existing benchmark and repeated short suite reproduce the low throughput. All 18 short checks pass, so the issue being investigated is performance. Ranked explanations before changing the backend:
 
 1. Vulkan's kernel path for these weights and this hybrid architecture is slow. Prediction: SYCL improves the same steady-state workload.
