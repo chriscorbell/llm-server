@@ -63,6 +63,82 @@ x-b70-common: &b70-common
       max-file: "5"
 
 services:
+  # Alternative fine-tune. Stop and remove the current qwen38 container before
+  # switching profiles. The shared name and port prevent two models loading.
+  llama-turbo:
+    image: ${TURBO_IMAGE}
+    container_name: qwen38
+    profiles: ["turbo-gguf"]
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDR}:${PORT}:8000"
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "${RENDER_GID}"
+    volumes:
+      - ${TURBO_MODEL_DIR:-/home/chris/models/Qwen3.8-27B-Turbo-GGUF}:/models:ro
+    environment:
+      LLAMA_API_KEY: ${API_KEY}
+    command:
+      - --model
+      - /models/${TURBO_MODEL_FILE}
+      - --mmproj
+      - /models/mmproj-F16.gguf
+      - --alias
+      - qwen38-turbo
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --device
+      - Vulkan0
+      - --n-gpu-layers
+      - all
+      - --ctx-size
+      - ${TURBO_CONTEXT}
+      - --parallel
+      - "1"
+      - --batch-size
+      - "2048"
+      - --ubatch-size
+      - "512"
+      - --flash-attn
+      - "on"
+      - --cache-type-k
+      - f16
+      - --cache-type-v
+      - f16
+      - --jinja
+      - --reasoning-format
+      - deepseek
+      - --spec-type
+      - ${TURBO_SPEC_TYPE}
+      - --spec-draft-n-max
+      - ${TURBO_DRAFT_TOKENS}
+      - --temp
+      - "0.7"
+      - --top-p
+      - "0.8"
+      - --top-k
+      - "20"
+      - --repeat-penalty
+      - "1.0"
+      - --no-context-shift
+      - --metrics
+      - --no-webui
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 600s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
   # Self-hosted metasearch for Pi's web_search tool. No profile, so it runs
   # alongside whichever engine Profile is up. JSON at ${BIND_ADDR}:${SEARXNG_PORT}/search?format=json.
   searxng:
