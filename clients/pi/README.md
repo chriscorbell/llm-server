@@ -2,17 +2,7 @@
 
 Pi runs on the MacBook and uses its local tools to read, edit and test code. The model request goes over Tailscale to Qwen on `vllm`.
 
-## Turbo model
-
-The installed model list also includes `llm-server/qwen38-turbo`, displayed as `Qwen3.8-27B Turbo Q6_K`. It has xhigh thinking, text/image input, tool calling, 131,072 total context tokens and a 32,768-token output limit. The existing 40,960-token compaction reserve applies to both Qwen models.
-
-First switch the server to the `turbo-gguf` profile using the [server switch commands](../../README.md#turbo-gguf-profile). Selecting a model in Pi does not load it on the server. Then launch:
-
-```bash
-pi --model llm-server/qwen38-turbo --thinking xhigh
-```
-
-In an existing Pi session, open `/model` and choose `Qwen3.8-27B Turbo Q6_K`; the picker reloads the model file. The original `llm-server/qwen38` choice remains available for the `a-int4draft` server profile. Both choices use the existing `llm-server` credential and local-server extension.
+The server has `a-int4draft` and `original-int4draft` profiles. Both expose the same `qwen38` API model, so switching checkpoints does not require a client configuration change. Selecting a model in Pi does not switch the server profile.
 
 ## Install the checked configuration
 
