@@ -1,14 +1,14 @@
 # Qwen3.8-27B on one Intel Arc Pro B70. See ../STATUS.md for what is current.
 #
 # One Profile runs at a time; the GPU holds one model.
-#   bash scripts/compose.sh --profile a-int4draft up -d   # daily driver
-#   MTP_TOKENS=3 bash scripts/compose.sh --profile a-bf16kv up -d # rollback
-#   bash scripts/compose.sh --profile a-fp8kv up -d
+#   bash scripts/compose.sh --profile a-int4draft up -d
+#   bash scripts/compose.sh --profile original-int4draft up -d
 #
-# Private .env values are followed by measured defaults from tuning.env.
+# Private .env values are followed by model.env and measured tuning.env defaults.
 
 x-b70-common: &b70-common
   image: ${VLLM_IMAGE}
+  container_name: qwen38
   restart: unless-stopped
   # Bound to the Tailscale address only. Never publish on 0.0.0.0.
   ports:
@@ -23,18 +23,6 @@ x-b70-common: &b70-common
   # on one L3 slice instead of migrating across the eight on this Threadripper.
   # Empty means unpinned, which is the default.
   cpuset: "${CPUSET:-}"
-  volumes:
-    # The device mapping above exposes the nodes but not the directory listing.
-    # oneCCL enumerates /dev/dri at startup and dies with "opendir failed" without
-    # this bind mount, even on a single GPU.
-    - /dev/dri:/dev/dri:ro
-    - ${MODEL_DIR}:/model:ro
-    - ./patches/patch_mtp_nightly.py:/patches/patch_mtp_nightly.py:ro
-    - ./patches/patch_mtp_boundary.py:/patches/patch_mtp_boundary.py:ro
-    - ./patches/patch_gdn_mixed_split_v5.py:/patches/patch_gdn_mixed_split_v5.py:ro
-    - ./patches/patch_draft_lmhead_int4.py:/patches/patch_draft_lmhead_int4.py:ro
-    - ./patches/patch_draft_mtp_int4.py:/patches/patch_draft_mtp_int4.py:ro
-    - ${HF_CACHE:-./.hf-cache}:/tmp/hf
   environment:
     VLLM_TARGET_DEVICE: xpu
     ZE_FLAT_DEVICE_HIERARCHY: COMPOSITE
@@ -43,6 +31,8 @@ x-b70-common: &b70-common
     # exceeds that at long context, so this is required, not optional.
     UR_L0_ENABLE_RELAXED_ALLOCATION_LIMITS: "1"
     B70_MTP_BF16_DRAFT: "1"
+    B70_DRAFT_LMHEAD_INT4: "1"
+    B70_DRAFT_MTP_INT4: "1"
     VLLM_XPU_ENABLE_XPU_GRAPH: "1"
     PYTORCH_ALLOC_CONF: expandable_segments:True
     VLLM_API_KEY: ${API_KEY}
@@ -62,90 +52,36 @@ x-b70-common: &b70-common
       max-size: "50m"
       max-file: "5"
 
-services:
-  # Alternative fine-tune. Stop and remove the current qwen38 container before
-  # switching profiles. The shared name and port prevent two models loading.
-  llama-turbo:
-    image: ${TURBO_IMAGE}
-    container_name: qwen38
-    profiles: ["turbo-gguf"]
-    restart: unless-stopped
-    ports:
-      - "${BIND_ADDR}:${PORT}:8000"
-    devices:
-      - /dev/dri:/dev/dri
-    group_add:
-      - "${RENDER_GID}"
-    volumes:
-      - ${TURBO_MODEL_DIR:-/home/chris/models/Qwen3.8-27B-Turbo-GGUF}:/models:ro
-    environment:
-      LLAMA_API_KEY: ${API_KEY}
-      UR_L0_ENABLE_RELAXED_ALLOCATION_LIMITS: "1"
-    command:
-      - --model
-      - /models/${TURBO_MODEL_FILE}
-      - --mmproj
-      - /models/mmproj-F16.gguf
-      - --alias
-      - qwen38-turbo
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8000"
-      - --device
-      - ${TURBO_DEVICE}
-      - --n-gpu-layers
-      - all
-      - --ctx-size
-      - ${TURBO_CONTEXT}
-      - --parallel
-      - "1"
-      - --batch-size
-      - "2048"
-      - --ubatch-size
-      - "512"
-      - --flash-attn
-      - "on"
-      - --cache-type-k
-      - ${TURBO_KV_TYPE}
-      - --cache-type-v
-      - ${TURBO_KV_TYPE}
-      - --jinja
-      - --chat-template-kwargs
-      - '{"enable_thinking":true,"reasoning_effort":"xhigh"}'
-      - --reasoning-format
-      - deepseek
-      - --reasoning-budget
-      - "-1"
-      - --spec-type
-      - ${TURBO_SPEC_TYPE}
-      - --spec-draft-n-max
-      - ${TURBO_DRAFT_TOKENS}
-      - --temp
-      - "0.7"
-      - --top-p
-      - "0.8"
-      - --top-k
-      - "20"
-      - --repeat-penalty
-      - "1.0"
-      - --no-context-shift
-      - --metrics
-      - --no-webui
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
-      interval: 30s
-      timeout: 5s
-      start_period: 600s
-      retries: 3
-    logging:
-      driver: json-file
-      options:
-        max-size: "50m"
-        max-file: "5"
+x-int4draft: &int4draft
+  <<: *b70-common
+  command:
+    - >-
+      set -e;
+      python /patches/patch_mtp_nightly.py;
+      python /patches/patch_mtp_boundary.py;
+      python /patches/patch_draft_lmhead_int4.py;
+      python /patches/patch_draft_mtp_int4.py;
+      exec vllm serve /model
+      --served-model-name ${SERVED_NAME}
+      --quantization gptq
+      --dtype float16
+      --kv-cache-dtype ${KV_DTYPE:-auto}
+      --max-model-len ${MAX_MODEL_LEN_INT4DRAFT}
+      --gpu-memory-utilization ${GPU_UTIL}
+      --max-num-seqs ${MAX_NUM_SEQS}
+      --max-num-batched-tokens ${MAX_BATCHED_TOKENS}
+      --enable-prefix-caching
+      --enable-prompt-tokens-details
+      --enable-auto-tool-choice
+      --tool-call-parser ${TOOL_PARSER}
+      --reasoning-parser ${REASONING_PARSER}
+      --speculative-config '{"method":"mtp","num_speculative_tokens":${MTP_TOKENS}}'
+      --port 8000
 
+services:
   # Self-hosted metasearch for Pi's web_search tool. No profile, so it runs
-  # alongside whichever engine Profile is up. JSON at ${BIND_ADDR}:${SEARXNG_PORT}/search?format=json.
+  # alongside whichever model is up. JSON is available at
+  # ${BIND_ADDR}:${SEARXNG_PORT}/search?format=json.
   searxng:
     image: ${SEARXNG_IMAGE}
     container_name: searxng
@@ -169,125 +105,34 @@ services:
         max-size: "10m"
         max-file: "2"
 
-  # Rollback arm without the draft overlay. Historical profile name says BF16; with dtype float16 and KV auto,
-  # the attention cache is FP16. Vision on. Depth from MTP_TOKENS. Single sequence.
-  vllm-a-bf16kv:
-    <<: *b70-common
-    container_name: qwen38
-    profiles: ["a-bf16kv"]
-    command:
-      - >-
-        set -e;
-        python /patches/patch_mtp_nightly.py;
-        python /patches/patch_mtp_boundary.py;
-        exec vllm serve /model
-        --served-model-name ${SERVED_NAME}
-        --quantization gptq
-        --dtype float16
-        --kv-cache-dtype auto
-        --max-model-len ${MAX_MODEL_LEN_BF16KV}
-        --gpu-memory-utilization ${GPU_UTIL}
-        --max-num-seqs ${MAX_NUM_SEQS}
-        --max-num-batched-tokens ${MAX_BATCHED_TOKENS}
-        --enable-prefix-caching
-        --enable-prompt-tokens-details
-        --enable-auto-tool-choice
-        --tool-call-parser ${TOOL_PARSER}
-        --reasoning-parser ${REASONING_PARSER}
-        --speculative-config '{"method":"mtp","num_speculative_tokens":${MTP_TOKENS}}'
-        --port 8000
-
-  # Daily driver. Same as a-bf16kv plus the upstream INT4 draft overlay: the
-  # draft's LM head copy and its five MTP linears are requantized to INT4 at load.
-  # The target model and its verification head are untouched. Single card only;
-  # the patches refuse to run under tensor parallelism.
+  # Daily driver: kernelogic's abliterated checkpoint with FP8 KV, runtime INT4
+  # draft, MTP4, vision, tools and a 131,072-token window.
   vllm-a-int4draft:
-    <<: *b70-common
-    container_name: qwen38
+    <<: *int4draft
     profiles: ["a-int4draft"]
-    environment:
-      VLLM_TARGET_DEVICE: xpu
-      ZE_FLAT_DEVICE_HIERARCHY: COMPOSITE
-      ZE_AFFINITY_MASK: "0"
-      UR_L0_ENABLE_RELAXED_ALLOCATION_LIMITS: "1"
-      B70_MTP_BF16_DRAFT: "1"
-      B70_DRAFT_LMHEAD_INT4: "1"
-      B70_DRAFT_MTP_INT4: "1"
-      VLLM_XPU_ENABLE_XPU_GRAPH: "1"
-      PYTORCH_ALLOC_CONF: expandable_segments:True
-      VLLM_API_KEY: ${API_KEY}
-      HF_HOME: /tmp/hf
-    command:
-      - >-
-        set -e;
-        python /patches/patch_mtp_nightly.py;
-        python /patches/patch_mtp_boundary.py;
-        python /patches/patch_draft_lmhead_int4.py;
-        python /patches/patch_draft_mtp_int4.py;
-        exec vllm serve /model
-        --served-model-name ${SERVED_NAME}
-        --quantization gptq
-        --dtype float16
-        --kv-cache-dtype ${KV_DTYPE:-auto}
-        --max-model-len ${MAX_MODEL_LEN_INT4DRAFT:-${MAX_MODEL_LEN_BF16KV}}
-        --gpu-memory-utilization ${GPU_UTIL}
-        --max-num-seqs ${MAX_NUM_SEQS}
-        --max-num-batched-tokens ${MAX_BATCHED_TOKENS}
-        --enable-prefix-caching
-        --enable-prompt-tokens-details
-        --enable-auto-tool-choice
-        --tool-call-parser ${TOOL_PARSER}
-        --reasoning-parser ${REASONING_PARSER}
-        --speculative-config '{"method":"mtp","num_speculative_tokens":${MTP_TOKENS}}'
-        --port 8000
+    volumes:
+      # The device mapping above exposes the nodes but not the directory listing.
+      # oneCCL enumerates /dev/dri at startup and dies without this bind mount.
+      - /dev/dri:/dev/dri:ro
+      - ${UNCENSORED_MODEL_DIR}:/model:ro
+      - ./patches/patch_mtp_nightly.py:/patches/patch_mtp_nightly.py:ro
+      - ./patches/patch_mtp_boundary.py:/patches/patch_mtp_boundary.py:ro
+      - ./patches/patch_gdn_mixed_split_v5.py:/patches/patch_gdn_mixed_split_v5.py:ro
+      - ./patches/patch_draft_lmhead_int4.py:/patches/patch_draft_lmhead_int4.py:ro
+      - ./patches/patch_draft_mtp_int4.py:/patches/patch_draft_mtp_int4.py:ro
+      - ${HF_CACHE:-./.hf-cache}:/tmp/hf
 
-  # Experiment arm. FP8 KV halves cache cost per token and buys context.
-  vllm-a-fp8kv:
-    <<: *b70-common
-    container_name: qwen38
-    profiles: ["a-fp8kv"]
-    command:
-      - >-
-        set -e;
-        python /patches/patch_mtp_nightly.py;
-        python /patches/patch_mtp_boundary.py;
-        exec vllm serve /model
-        --served-model-name ${SERVED_NAME}
-        --quantization gptq
-        --dtype float16
-        --kv-cache-dtype fp8
-        --max-model-len ${MAX_MODEL_LEN_FP8KV}
-        --gpu-memory-utilization ${GPU_UTIL}
-        --max-num-seqs ${MAX_NUM_SEQS}
-        --max-num-batched-tokens ${MAX_BATCHED_TOKENS}
-        --enable-prefix-caching
-        --enable-prompt-tokens-details
-        --enable-auto-tool-choice
-        --tool-call-parser ${TOOL_PARSER}
-        --reasoning-parser ${REASONING_PARSER}
-        --speculative-config '{"method":"mtp","num_speculative_tokens":${MTP_TOKENS}}'
-        --port 8000
-
-  # Control arm. No speculative decoding, for attributing a quality change to MTP.
-  vllm-a-nospec:
-    <<: *b70-common
-    container_name: qwen38
-    profiles: ["a-nospec"]
-    command:
-      - >-
-        set -e;
-        exec vllm serve /model
-        --served-model-name ${SERVED_NAME}
-        --quantization gptq
-        --dtype float16
-        --kv-cache-dtype ${KV_DTYPE:-auto}
-        --max-model-len ${MAX_MODEL_LEN_BF16KV}
-        --gpu-memory-utilization ${GPU_UTIL}
-        --max-num-seqs ${MAX_NUM_SEQS}
-        --max-num-batched-tokens ${MAX_BATCHED_TOKENS}
-        --enable-prefix-caching
-        --enable-prompt-tokens-details
-        --enable-auto-tool-choice
-        --tool-call-parser ${TOOL_PARSER}
-        --reasoning-parser ${REASONING_PARSER}
-        --port 8000
+  # The checkpoint that preceded the abliterated model. It deliberately uses the
+  # same serving flags, so the only profile difference is the model directory.
+  vllm-original-int4draft:
+    <<: *int4draft
+    profiles: ["original-int4draft"]
+    volumes:
+      - /dev/dri:/dev/dri:ro
+      - ${ORIGINAL_MODEL_DIR}:/model:ro
+      - ./patches/patch_mtp_nightly.py:/patches/patch_mtp_nightly.py:ro
+      - ./patches/patch_mtp_boundary.py:/patches/patch_mtp_boundary.py:ro
+      - ./patches/patch_gdn_mixed_split_v5.py:/patches/patch_gdn_mixed_split_v5.py:ro
+      - ./patches/patch_draft_lmhead_int4.py:/patches/patch_draft_lmhead_int4.py:ro
+      - ./patches/patch_draft_mtp_int4.py:/patches/patch_draft_mtp_int4.py:ro
+      - ${HF_CACHE:-./.hf-cache}:/tmp/hf

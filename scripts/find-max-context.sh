@@ -4,7 +4,7 @@
 # a successful /health plus one completion is the pass condition.
 #
 # Usage: find-max-context.sh <profile> <low> <high>
-#   e.g. find-max-context.sh a-bf16kv 32768 262144
+#   e.g. find-max-context.sh original-int4draft 32768 262144
 set -euo pipefail
 cd "$(dirname "$0")/../compose"
 PROFILE="${1:?profile}"; LOW="${2:-32768}"; HIGH="${3:-262144}"

@@ -4,7 +4,7 @@
 #   scripts/experiment.sh <profile> "<label>" "<KEY=VAL ...>" "<prompt-token sizes>"
 #
 # Example:
-#   scripts/experiment.sh a-bf16kv "batched 16384" "MAX_BATCHED_TOKENS=16384" "32768 90000"
+#   scripts/experiment.sh original-int4draft "mtp depth 3" "MTP_TOKENS=3" "32768 90000"
 #
 # Prints one line per prompt size. Everything it prints is meant to be pasted
 # straight into a log entry, so it always states the overrides it applied.
@@ -21,7 +21,7 @@ echo "=== $LABEL"
 echo "    profile=$PROFILE overrides=${OVERRIDES:-none}"
 
 ssh -o BatchMode=yes "$HOST" "cd ~/Code/llm-server/compose && \
-  bash ../scripts/compose.sh --profile a-int4draft --profile a-bf16kv --profile a-fp8kv --profile a-nospec down >/dev/null 2>&1; \
+  bash ../scripts/compose.sh --profile a-int4draft --profile original-int4draft down >/dev/null 2>&1; \
   env $OVERRIDES bash ../scripts/compose.sh --profile $PROFILE up -d >/dev/null 2>&1" || {
     echo "    FAILED to start"; exit 1; }
 
