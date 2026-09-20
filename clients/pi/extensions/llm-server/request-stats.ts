@@ -1,8 +1,8 @@
-// Per-request numbers in the footer: time to first token, prefix-cache hit share,
+// Per-request numbers in the footer: time to first token, prompt-cache hit share,
 // and distance to the compaction threshold. Warns when a large prompt missed the cache.
-//
-// Cache figures need vLLM started with --enable-prompt-tokens-details; without it
-// usage.cacheRead is always 0 and the status shows the prompt size only.
+// Works for any provider that reports cached tokens (vLLM with
+// --enable-prompt-tokens-details, OpenAI, Anthropic); until one does, the status
+// shows the prompt size only.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { compactionReserveTokens, fmtTokens, record } from "./shared.ts";
 
@@ -49,11 +49,11 @@ export default function requestStats(pi: ExtensionAPI) {
 			const left = usageNow.contextWindow - reserve - usageNow.tokens;
 			parts.push(left > 0 ? `${fmtTokens(left)} to compaction` : "compaction due");
 		}
-		ctx.ui.setStatus("llm-server", parts.join(" · "));
+		ctx.ui.setStatus("request", parts.join(" · "));
 
 		if (sawCacheRead && prompt >= 8000 && cached < prompt / 2 && message.stopReason !== "error") {
 			const when = ttft !== undefined ? ` (${ttft.toFixed(1)} s to first token)` : "";
-			ctx.ui.notify(`Prefix cache miss: ${fmtTokens(prompt - cached)} of ${fmtTokens(prompt)} prompt tokens prefilled cold${when}.`, "warning");
+			ctx.ui.notify(`Prompt cache miss: ${fmtTokens(prompt - cached)} of ${fmtTokens(prompt)} prompt tokens were not served from cache${when}.`, "warning");
 		}
 	});
 }

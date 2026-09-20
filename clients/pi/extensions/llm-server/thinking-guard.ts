@@ -4,10 +4,12 @@
 // is notification-only, so this cannot block the change. It explains the cost and
 // asks cache-warmup.ts to prefill with the new level while the user is still typing.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { estimateColdSeconds, fmtTokens } from "./shared.ts";
+import { estimateColdSeconds, fmtTokens, isLocalServer } from "./shared.ts";
 
 export default function thinkingGuard(pi: ExtensionAPI) {
 	pi.on("thinking_level_select", async (event, ctx) => {
+		// The cost estimate and the warm-up are specific to Qwen on vLLM.
+		if (!isLocalServer(ctx.model)) return;
 		if (!event.previousLevel || event.level === event.previousLevel) return;
 		const usage = ctx.getContextUsage();
 		const tokens = usage?.tokens ?? 0;

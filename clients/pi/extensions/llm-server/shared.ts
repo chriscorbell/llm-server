@@ -1,7 +1,58 @@
-// Helpers shared by the llm-server Pi extension modules.
+// Helpers shared by the Pi extension modules. The extension loads for every
+// provider Pi knows about; the helpers below decide per selected model which
+// behaviour applies.
 import { appendFileSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+
+type ModelLike = { provider?: string; id?: string; baseUrl?: string; contextWindow?: number } | undefined;
+
+/**
+ * Provider id of the private server in models.json. Modules that depend on vLLM's
+ * prefix cache, its /health endpoint or the container (cache-warmup, thinking-guard,
+ * server-health) act only while a model from this provider is selected.
+ */
+export const LOCAL_PROVIDER = process.env.PI_LOCAL_PROVIDER ?? "llm-server";
+
+export function isLocalServer(model: ModelLike): boolean {
+	return model?.provider === LOCAL_PROVIDER;
+}
+
+/** "openai-codex/gpt-5.5" for messages that explain why a module stayed quiet. */
+export function describeModel(model: ModelLike): string {
+	return model ? `${model.provider ?? "?"}/${model.id ?? "?"}` : "no model";
+}
+
+/** The first model of the private server in Pi's registry, whichever model is selected. */
+export function localModel(ctx: { modelRegistry?: { getAll(): Array<{ provider: string }> } }): { provider: string; baseUrl?: string } | undefined {
+	return ctx.modelRegistry?.getAll().find((m) => m.provider === LOCAL_PROVIDER);
+}
+
+/**
+ * Windows below this are "small": the tighter tool-output cap and the context
+ * advice in the system prompt apply. 98,304 qualifies; the current 131,072-token Qwen window does not.
+ */
+export const SMALL_WINDOW_TOKENS = Number(process.env.PI_SMALL_WINDOW_TOKENS || 131072);
+
+export interface ToolBudget {
+	maxBytes: number;
+	maxLines: number;
+}
+
+/**
+ * Tool-output cap for the selected model. PI_TOOL_BUDGET_KB or PI_TOOL_BUDGET_LINES
+ * force a cap for every model; otherwise a small window gets 24 KB / 600 lines and
+ * larger windows keep Pi's own 50 KB / 2000 lines (undefined here).
+ */
+export function toolBudget(model: ModelLike): ToolBudget | undefined {
+	const forced = process.env.PI_TOOL_BUDGET_KB || process.env.PI_TOOL_BUDGET_LINES;
+	const window = model?.contextWindow ?? 0;
+	if (!forced && !(window > 0 && window < SMALL_WINDOW_TOKENS)) return undefined;
+	return {
+		maxBytes: Number(process.env.PI_TOOL_BUDGET_KB || 24) * 1024,
+		maxLines: Number(process.env.PI_TOOL_BUDGET_LINES || 600),
+	};
+}
 
 /**
  * Cold prefill rate on the Arc Pro B70 with Profile A. 33.4K prompt tokens took

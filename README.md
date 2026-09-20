@@ -25,7 +25,7 @@ On the server, once:
 ssh <hostname> 'bash -s' < scripts/setup-server.sh
 ```
 
-Then copy `compose/.env.example` to `compose/.env`, fill in the render group id, an API key and a SearXNG secret, download the abliterated checkpoint, and start one Profile. The setup script downloads the original checkpoint. SearXNG, which backs Pi's web search, has no profile and starts alongside either model:
+Then copy `compose/.env.example` to `compose/.env`, fill in the render group id, an API key and a SearXNG secret, download the abliterated checkpoint, and start one Profile. The setup script downloads the original checkpoint. SearXNG, which provides a fallback for Pi's Exa-first web search, has no profile and starts alongside either model:
 
 ```bash
 ssh <hostname> 'cd ~/Code/llm-server && python3 scripts/download-turbo.py --manifest compose/uncensored-model.json'

@@ -5,7 +5,7 @@
 // and says when the engine is back. /vllm shows the container state on demand.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Box, Text } from "@earendil-works/pi-tui";
-import { record, serverOrigin, sleep } from "./shared.ts";
+import { describeModel, isLocalServer, LOCAL_PROVIDER, localModel, record, serverOrigin, sleep } from "./shared.ts";
 
 const WATCH_INTERVAL_MS = 10_000;
 const WATCH_LIMIT_MS = 15 * 60_000;
@@ -44,6 +44,8 @@ export default function serverHealth(pi: ExtensionAPI) {
 	pi.on("message_end", async (event, ctx) => {
 		const message = event.message as any;
 		if (message.role !== "assistant" || message.stopReason !== "error") return;
+		// A hosted provider's error has nothing to do with /health on vllm.
+		if (!isLocalServer(ctx.model)) return;
 		const origin = serverOrigin(ctx.model);
 		if (!origin) return;
 		const h = await health(origin);
@@ -84,9 +86,10 @@ export default function serverHealth(pi: ExtensionAPI) {
 	pi.registerCommand("vllm", {
 		description: "Server state: /vllm shows health and the container, /vllm logs [n] tails the engine log",
 		handler: async (args, ctx) => {
-			const origin = serverOrigin(ctx.model);
+			// Works while another provider is selected: look the server up in the registry.
+			const origin = serverOrigin(isLocalServer(ctx.model) ? ctx.model : localModel(ctx));
 			if (!origin) {
-				ctx.ui.notify("No model with a baseUrl is selected", "error");
+				ctx.ui.notify(`No ${LOCAL_PROVIDER} model with a baseUrl in the registry (current model ${describeModel(ctx.model)})`, "error");
 				return;
 			}
 			const host = new URL(origin).hostname;

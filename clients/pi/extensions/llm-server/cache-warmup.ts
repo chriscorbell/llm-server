@@ -10,9 +10,12 @@
 //
 // Triggers: compaction when idle (or once the run settles), /warm, and the
 // "llm-server:warm" bus event from thinking-guard.ts.
+//
+// Only the private server benefits: a hosted provider would bill the warm-up as a
+// full prompt (and a cache write), so every path returns when another model is selected.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { convertToLlm } from "@earendil-works/pi-coding-agent";
-import { fmtTokens, record } from "./shared.ts";
+import { describeModel, fmtTokens, isLocalServer, LOCAL_PROVIDER, record } from "./shared.ts";
 
 interface WarmRequest {
 	reason: string;
@@ -35,7 +38,7 @@ export default function cacheWarmup(pi: ExtensionAPI) {
 	pi.on("session_compact", async (event, ctx) => {
 		lastCtx = ctx;
 		// Overflow recovery re-sends the aborted turn immediately; nothing to gain.
-		if (event.willRetry) return;
+		if (event.willRetry || !isLocalServer(ctx.model)) return;
 		const request = { reason: `${event.reason} compaction` };
 		// ctx.isIdle() is false inside this event: Pi still holds the compaction controller
 		// until the handler returns. Check again shortly after; a mid-run compaction stays
@@ -61,9 +64,13 @@ export default function cacheWarmup(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("warm", {
-		description: "Prefill the current context on vllm so the next request hits the prefix cache",
+		description: `Prefill the current context on the ${LOCAL_PROVIDER} server so the next request hits its prefix cache`,
 		handler: async (_args, ctx) => {
 			lastCtx = ctx;
+			if (!isLocalServer(ctx.model)) {
+				ctx.ui.notify(`/warm prefills vLLM's prefix cache and only applies to ${LOCAL_PROVIDER} models; the current model is ${describeModel(ctx.model)}.`, "warning");
+				return;
+			}
 			await warm(ctx, { reason: "manual" });
 		},
 	});
@@ -76,7 +83,7 @@ export default function cacheWarmup(pi: ExtensionAPI) {
 	async function warm(ctx: any, request: WarmRequest): Promise<void> {
 		if (running) return;
 		const model = ctx.model;
-		if (!model) return;
+		if (!model || !isLocalServer(model)) return;
 		const messages = convertToLlm(ctx.sessionManager.buildSessionContext().messages);
 		if (messages.length === 0) return;
 

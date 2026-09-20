@@ -1,0 +1,47 @@
+{
+  "webSearch": {
+    "allowedProviders": [
+      "exa",
+      "searxng",
+      "duckduckgo"
+    ]
+  },
+  "searchRouting": {
+    "providers": [
+      "exa",
+      "searxng",
+      "duckduckgo"
+    ],
+    "fallbackOn": [
+      "transient",
+      "quota",
+      "network",
+      "invalid-response",
+      "unsupported"
+    ]
+  },
+  "searxngBaseUrl": "http://100.103.136.98:8080",
+  "fetchRouting": {
+    "providers": [
+      "http"
+    ],
+    "allowRemoteHostedProviders": false
+  },
+  "fetch": {
+    "defaultMode": "readable",
+    "answerProvider": "llm-server",
+    "answerModel": "qwen38"
+  },
+  "pdf": {
+    "provider": "unpdf"
+  },
+  "workflow": "none",
+  "summaryModel": "llm-server/qwen38:low",
+  "maxInlineContentChars": 20000,
+  "allowBrowserCookies": false,
+  "ssrf": {
+    "allowRanges": [
+      "100.103.136.98/32"
+    ]
+  }
+}
