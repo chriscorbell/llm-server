@@ -15,10 +15,12 @@
 // full prompt (and a cache write), so every path returns when another model is selected.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { convertToLlm } from "@earendil-works/pi-coding-agent";
-import { describeModel, fmtTokens, isLocalServer, LOCAL_PROVIDER, record } from "./shared.ts";
+import { LOCAL_PROVIDER, describeModel, estimateColdSeconds, fmtTokens, isLocalServer, record, withTemplateKwargs } from "./shared.ts";
 
 interface WarmRequest {
 	reason: string;
+	/** Expected cold prefill time; shown in the status so a host can draw progress. */
+	estimateSeconds?: number;
 	thinkingLevel?: string;
 }
 
@@ -97,7 +99,8 @@ export default function cacheWarmup(pi: ExtensionAPI) {
 
 		running = new AbortController();
 		const t0 = performance.now();
-		ctx.ui.setStatus("warm", `warming prefix cache (${request.reason})`);
+		const estimate = request.estimateSeconds ?? Math.max(1, Math.round(estimateColdSeconds(ctx.getContextUsage()?.tokens ?? 0)));
+		ctx.ui.setStatus("warm", `warming prefix cache (${request.reason}) ~${estimate} s`);
 		try {
 			const response = await ctx.modelRegistry.complete(
 				model,
@@ -107,8 +110,8 @@ export default function cacheWarmup(pi: ExtensionAPI) {
 					reasoningEffort: level === "off" ? undefined : level,
 					signal: running.signal,
 					onPayload: (payload: any) => {
-						lastWarmPayload = payload;
-						return payload;
+						lastWarmPayload = withTemplateKwargs(payload);
+						return lastWarmPayload;
 					},
 				},
 			);

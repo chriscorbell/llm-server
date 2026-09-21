@@ -12,12 +12,14 @@ import notify from "./notify.ts";
 import requestStats from "./request-stats.ts";
 import serverHealth from "./server-health.ts";
 import thinkingGuard from "./thinking-guard.ts";
+import thinkingHistory from "./thinking-history.ts";
 import toolOutputBudget from "./tool-output-budget.ts";
 
 export default function (pi: ExtensionAPI) {
 	requestStats(pi);
 	cacheWarmup(pi);
 	thinkingGuard(pi);
+	thinkingHistory(pi);
 	serverHealth(pi);
 	notify(pi);
 	handoff(pi);

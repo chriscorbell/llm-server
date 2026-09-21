@@ -17,10 +17,10 @@ export default function thinkingGuard(pi: ExtensionAPI) {
 		const estimate = Math.max(1, Math.round(estimateColdSeconds(tokens)));
 		if (ctx.isIdle()) {
 			ctx.ui.notify(
-				`Thinking ${event.previousLevel} -> ${event.level} changes Qwen's prompt template, so the ${fmtTokens(tokens)}-token cached prefix is stale. Warming it with the new level now, about ${estimate} s; the footer clears when done.`,
+				`Thinking ${event.previousLevel} -> ${event.level} changes Qwen's prompt template, so the ${fmtTokens(tokens)}-token cached prefix is stale. Warming it with the new level now, about ${estimate} s.`,
 				"warning",
 			);
-			pi.events.emit("llm-server:warm", { reason: `thinking ${event.level}`, thinkingLevel: event.level });
+			pi.events.emit("llm-server:warm", { reason: `thinking ${event.level}`, thinkingLevel: event.level, estimateSeconds: estimate });
 		} else {
 			ctx.ui.notify(
 				`Thinking ${event.previousLevel} -> ${event.level} changes Qwen's prompt template. The next request prefills ${fmtTokens(tokens)} tokens cold, about ${estimate} s.`,

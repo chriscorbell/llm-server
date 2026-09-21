@@ -80,6 +80,17 @@ export function record(value: Record<string, unknown>): void {
 	}
 }
 
+/**
+ * chat_template_kwargs sent with every request to the local server. The warm-up
+ * in cache-warmup.ts applies the same values so its rendered prompt matches.
+ */
+export const TEMPLATE_KWARGS: Record<string, unknown> = { preserve_thinking: false };
+
+export function withTemplateKwargs<T extends Record<string, unknown>>(payload: T): T {
+	const existing = (payload.chat_template_kwargs as Record<string, unknown> | undefined) ?? {};
+	return { ...payload, chat_template_kwargs: { ...existing, ...TEMPLATE_KWARGS } };
+}
+
 /** Pi does not expose settings to extensions, so read the same global file it reads. */
 export function compactionReserveTokens(): number {
 	const dir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
