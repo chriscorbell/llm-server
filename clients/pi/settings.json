@@ -1,11 +1,11 @@
 {
   "defaultProvider": "llm-server",
   "defaultModel": "qwen38",
-  "defaultThinkingLevel": "xhigh",
+  "defaultThinkingLevel": "medium",
   "theme": "dark",
   "compaction": {
     "enabled": true,
-    "reserveTokens": 40960,
+    "reserveTokens": 24576,
     "keepRecentTokens": 20000
   },
   "retry": {
@@ -22,13 +22,9 @@
   "packages": [
     "npm:pi-agent-browser-native@0.6.15",
     "npm:pi-web-access@0.30.0",
-    "npm:pi-mcp-adapter@2.34.0",
     "npm:@juicesharp/rpiv-ask-user-question@2.10.1",
     "npm:@juicesharp/rpiv-todo@2.10.1",
-    "npm:pi-background-tasks@2.5.0",
-    "npm:pi-lens@4.2.1",
-    "npm:pi-goal-x@0.31.6",
-    "npm:@narumitw/pi-btw@0.60.0"
+    "npm:pi-goal-x@0.31.6"
   ],
   "hideThinkingBlock": true
 }

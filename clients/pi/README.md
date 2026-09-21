@@ -10,24 +10,18 @@ Pi 0.85.1 from `@earendil-works/pi-coding-agent` is the validated client version
 
 ```bash
 npm install -g @earendil-works/pi-coding-agent@0.85.1
-mkdir -p ~/.pi/agent/extensions ~/.config/rpiv-todo ~/.pi-lens
+mkdir -p ~/.pi/agent/extensions ~/.config/rpiv-todo
 cp clients/pi/models.json ~/.pi/agent/models.json
 cp clients/pi/settings.json ~/.pi/agent/settings.json
 cp clients/pi/web-search.json ~/.pi/agent/web-search.json
 cp clients/pi/rpiv-todo.json ~/.config/rpiv-todo/config.json
-cp clients/pi/pi-lens.json ~/.pi-lens/config.json
 cp clients/pi/pi-goal-x-settings.json ~/.pi/agent/pi-goal-x-settings.json
-cp clients/pi/pi-btw.json ~/.pi/agent/pi-btw.json
 ln -sfn "$PWD/clients/pi/extensions/llm-server" ~/.pi/agent/extensions/llm-server
 pi install npm:pi-agent-browser-native@0.6.15
 pi install npm:pi-web-access@0.30.0
-pi install npm:pi-mcp-adapter@2.34.0
 pi install npm:@juicesharp/rpiv-ask-user-question@2.10.1
 pi install npm:@juicesharp/rpiv-todo@2.10.1
-pi install npm:pi-background-tasks@2.5.0
-pi install npm:pi-lens@4.2.1
 pi install npm:pi-goal-x@0.31.6
-pi install npm:@narumitw/pi-btw@0.60.0
 ```
 
 For a fresh installation with no `auth.json`, write the server key once, replacing the placeholder, then confirm the model is available. If the file already exists, add the `llm-server` entry to it and preserve the other provider credentials:
@@ -42,9 +36,9 @@ pi --list-models qwen38
 
 The symlink keeps the installed extension identical to the checked one; edit it here and restart Pi. On mbp, `~/.pi/agent/AGENTS.md` is a separate symlink to `~/Code/AGENTS.md/AGENTS.md`, the shared global instructions repository. There are no separate global Pi skill, prompt or theme directories configured beyond package-provided resources. Credentials, session history, generated caches and the `lastChangelogVersion` runtime marker stay outside this repository. The `.pi/prompts/` templates in the repository root load only when Pi runs from this repository and the project is trusted.
 
-The model declares the server's validated 131,072-token window. Pi begins compaction above 90,112 estimated context tokens, reserving 32,768 for the response plus 8,192 tokens of headroom.
+The model declares the server's validated 131,072-token window. Pi begins compaction above 106,496 estimated context tokens, reserving 16,384 for the response plus 8,192 tokens of headroom. The reserve was 40,960 until 2026-09-20; the largest response in a 201-turn session was under 4K tokens, so the old reserve only shortened the usable window. `maxTokens` and `reserveTokens` move together: vLLM rejects a request whose prompt plus `max_tokens` exceeds the window.
 
-Sampling is explicit because Qwen's thinking preset and MTP acceptance both depend on it. The model supports low, medium and xhigh effort. xhigh is the daily-driver default; unsupported Pi levels are hidden.
+Sampling is explicit because Qwen's thinking preset and MTP acceptance both depend on it. The model supports low, medium and xhigh effort. Medium is the default since 2026-09-20; select xhigh per session with `--thinking xhigh` or `/thinking` for hard repository work. Unsupported Pi levels are hidden. Retained reasoning was 75% of context growth in the session that motivated the change, so the effort level is the main lever on how often Pi compacts. [Context pressure](../../docs/log/2026-09-20-pi-context-pressure.md)
 
 ## Run it
 
@@ -71,7 +65,7 @@ Choose the thinking level before starting a task, because changing it invalidate
 
 ## The llm-server extension
 
-`clients/pi/extensions/llm-server/` is one Pi extension in eight modules, with no npm runtime dependencies. Everything it does follows from measurements in `docs/log/`: prefix reuse is worth 12 seconds per request at 23K tokens, the window is small, and the server is a single box that sometimes goes away.
+`clients/pi/extensions/llm-server/` is one Pi extension in nine modules, with no npm runtime dependencies. Everything it does follows from measurements in `docs/log/`: prefix reuse is worth 12 seconds per request at 23K tokens, the window is small, and the server is a single box that sometimes goes away.
 
 Pi loads the extension for every provider, so each module checks the selected model at runtime. Three modules act only while the model's provider is `llm-server` (`LOCAL_PROVIDER` in `shared.ts`, override with `PI_LOCAL_PROVIDER`): cache warm-up, the thinking guard and server diagnosis. Two scale with the window: the tool-output cap and the system-prompt constraints block. The rest apply to any model. Since 2026-09-11; [rework entry](../../docs/log/2026-09-11-pi-extension-provider-agnostic.md).
 
@@ -149,40 +143,20 @@ The global installation and `clients/pi/settings.json` pin these packages:
 
 | Package | Version | Use |
 |---|---|---|
-| [pi-mcp-adapter](https://pi.dev/packages/pi-mcp-adapter) | 2.34.0 | `/mcp` manages MCP connections; `/mcp setup` adds or imports servers. |
 | [rpiv-ask-user-question](https://pi.dev/packages/@juicesharp/rpiv-ask-user-question) | 2.10.1 | `ask_user_question` presents structured choices in terminal or supported RPC dialogs. |
 | [rpiv-todo](https://pi.dev/packages/@juicesharp/rpiv-todo) | 2.10.1 | `todo` tracks the current session's tasks; `/todos` lists them; Alt+T toggles the panel. |
-| [pi-background-tasks](https://pi.dev/packages/pi-background-tasks) | 2.5.0 | `/bg <command>` launches a job; `/jobs` lists jobs; `/logs <id>` reads output; Shift+Down opens the dock. |
-| [pi-lens](https://pi.dev/packages/pi-lens) | 4.2.1 | Language-server navigation, code search and edit diagnostics; `/lens-health` shows runtime health. |
 | [pi-goal-x](https://pi.dev/packages/pi-goal-x) | 0.31.6 | `/goal <objective>` plans persistent work; `/goal-pause`, `/goal-resume` and `/goal-status` control it. |
-| [pi-btw](https://pi.dev/packages/@narumitw/pi-btw) | 0.60.0 | `/btw <question>` opens a separate side conversation in terminal Pi. |
-
-The MCP adapter is ready but has no global servers configured. It automatically reads standard shared/project MCP files and starts servers lazily. Host-specific configs require explicit setup/import. The temporary validation server is confined to the test workspace.
 
 The todo panel has eight rows and uses Alt+T to avoid the goal dashboard's Ctrl+Shift+T binding. Todos track the current conversation; goals save longer-running objectives and plans across sessions. No goal is started by installation. Goal auditing defaults to local Qwen at medium thinking. Automatic continuation keeps the package default; `/goal-pause` stops it, and `/goal-settings` can set an autonomous-run allowance.
 
-Background delegates and Fusion default to the current model. A Fusion request starts several model calls, so it can queue behind other work on the single-sequence Qwen server. Shell jobs need no model. The package also loads an Anthropic OAuth attribution provider; it leaves non-Anthropic routes unchanged and rejects metered Anthropic API credentials.
-
-Lens can install language tools into its own cache when needed. It keeps LSP diagnostics, detected formatters and autofix enabled. Automatic test runs are disabled; invoke focused project checks deliberately. Its terminal output uses compact tool lines and LSP status. The TypeScript AST outline, symbol index and language-server hover pass validation.
-
-BTW inherits the main model and starts at low thinking without remembering later effort changes. It requires terminal Pi; Pier/RPC cannot display its side-thread interface. Version 0.60.3 fails on Pi 0.85.1 with `modelRegistry.streamSimple is not a function`, so the installation pins 0.60.0. Avoid updating BTW without repeating a real side-thread model call.
+pi-mcp-adapter, pi-background-tasks, pi-lens and pi-btw were installed on 2026-09-20 and removed the same day: together they cost 9,427 tokens of system prompt on every request, and the session that prompted the measurement used background tasks twice in 201 turns and the others not at all. Each package's cost is in the [context pressure entry](../../docs/log/2026-09-20-pi-context-pressure.md); `eval/pi_prefix_by_package.py` repeats the measurement. Their earlier compatibility notes remain in the [package suite entry](../../docs/log/2026-09-20-pi-package-suite.md).
 
 To reproduce the added configuration after installing the pinned packages:
 
 ```bash
-mkdir -p ~/.config/rpiv-todo ~/.pi-lens
+mkdir -p ~/.config/rpiv-todo
 cp clients/pi/rpiv-todo.json ~/.config/rpiv-todo/config.json
-cp clients/pi/pi-lens.json ~/.pi-lens/config.json
 cp clients/pi/pi-goal-x-settings.json ~/.pi/agent/pi-goal-x-settings.json
-cp clients/pi/pi-btw.json ~/.pi/agent/pi-btw.json
-```
-
-With npm 12, review and approve the platform-binary installation script if npm blocks it:
-
-```bash
-cd ~/.pi/agent/npm
-npm install-scripts approve @ast-grep/cli
-npm rebuild @ast-grep/cli
 ```
 
 Restart Pi, or quit and reopen Pier, after installing. [Measurements and compatibility notes](../../docs/log/2026-09-20-pi-package-suite.md).
@@ -201,13 +175,14 @@ From the repository root, Pi offers three templates that encode the recording du
 
 ## Settings worth knowing
 
-`quietStartup` hides the banner and `showCacheMissNotices` prints Pi's own notice on a large cache miss. The `bash` tool runs a plain non-interactive shell with no aliases from `~/.zshrc`; an earlier `shellCommandPrefix` that imported them was removed on 2026-09-09 because display aliases such as `ls` to `eza --icons` print nothing outside a terminal and cost the model a turn of confusion. `hideThinkingBlock` is on, matching the installed setup; reasoning still runs at xhigh, but its text is hidden in the UI.
+`quietStartup` hides the banner and `showCacheMissNotices` prints Pi's own notice on a large cache miss. The `bash` tool runs a plain non-interactive shell with no aliases from `~/.zshrc`; an earlier `shellCommandPrefix` that imported them was removed on 2026-09-09 because display aliases such as `ls` to `eza --icons` print nothing outside a terminal and cost the model a turn of confusion. `hideThinkingBlock` is on, matching the installed setup; reasoning still runs at the selected level, but its text is hidden in the UI.
 
 ## Why these compatibility settings
 
 - vLLM's Qwen template expects a system role rather than an OpenAI developer role.
 - The running vLLM accepts `reasoning_effort` and maps it into the Qwen template.
 - The server streams thinking as `reasoning`; Pi 0.85.1 retains that field name and sends it back with assistant tool calls.
+- The extension adds `chat_template_kwargs.preserve_thinking: false` to every request to the local server (`thinking-history.ts`). Without it Qwen's template renders the reasoning of every earlier assistant turn into the prompt; with it only steps after the latest user message keep theirs. The warm-up sends the same kwargs so its cached prefix matches.
 - `max_tokens` is known to work on the running endpoint.
 - Provider retries stay off so Pi's visible three-attempt retry loop handles transient errors once rather than nesting two retry loops.
 
