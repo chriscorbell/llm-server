@@ -1,0 +1,18 @@
+model_catalog_json = "/Users/chris/.codex/model-catalogs/qwen.json"
+model = "qwen38"
+model_provider = "vllm"
+model_reasoning_effort = "xhigh"
+model_context_window = 131072
+model_auto_compact_token_limit = 90000
+web_search = "disabled"
+
+[model_providers.vllm]
+name = "Qwen3.8 on vllm"
+base_url = "http://100.103.136.98:8000/v1"
+wire_api = "responses"
+supports_websockets = false
+
+[model_providers.vllm.auth]
+command = "/bin/cat"
+args = ["/Users/chris/.codex/credentials/vllm-api-key"]
+refresh_interval_ms = 0

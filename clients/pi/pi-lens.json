@@ -1,9 +1,0 @@
-{
-  "tests": {
-    "enabled": false
-  },
-  "ui": {
-    "compactToolLine": true,
-    "compactLspStatus": true
-  }
-}

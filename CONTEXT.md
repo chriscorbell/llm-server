@@ -45,3 +45,11 @@ The fixed set of pass/fail coding tasks in `eval/` used to score a Profile's rea
 ## Thinking
 
 Qwen3.8's extended reasoning mode, on by default in this deployment, controlled per request by a reasoning effort level. Thinking tokens consume context and wall time, so any speed number must state whether thinking was on.
+
+## Engram
+
+DeepSeek V4.1's learned lookup memory, indexed from token sequences. Engram table offloading moves this lookup memory to RAM or storage independently of the weights used for expert computation.
+
+## Expert weight offloading
+
+Keeping some mixture-of-experts computation weights outside GPU memory and accessing them when the model selects those experts. SSD expert streaming retrieves those weights from storage during inference; a successful Engram or KV-cache offload does not establish that this path works.
