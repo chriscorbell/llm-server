@@ -3,5 +3,5 @@
 eval/results/
 scratch/
 __pycache__/
-clients/pi/extensions/llm-server/node_modules/
+.pi/prompts/
 .DS_Store

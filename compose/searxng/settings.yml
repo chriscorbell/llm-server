@@ -8,7 +8,7 @@ general:
   enable_metrics: false
 
 search:
-  # json is what clients/pi/extensions/llm-server/web.ts reads; html keeps the UI usable in a browser.
+  # Pi's pi-web-access package reads json; html keeps the UI usable in a browser.
   formats:
     - html
     - json

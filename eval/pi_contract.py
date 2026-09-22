@@ -15,6 +15,7 @@ import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
+PI_CONFIG = Path(os.environ.get("PI_CONFIG_REPO", str(Path.home() / "Code/pi-config"))).expanduser() / "agent"
 
 
 def main() -> int:
@@ -32,7 +33,7 @@ def main() -> int:
         config = work / "config"
         config.mkdir()
         for name in ("models.json", "settings.json"):
-            shutil.copy(ROOT / "clients/pi" / name, config / name)
+            shutil.copy(PI_CONFIG / name, config / name)
         # Unrelated project records make the original requirement old enough to
         # require summarization with the production 20K recent-token setting.
         rng = random.Random(42)

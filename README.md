@@ -9,7 +9,7 @@ The goal is model quality first, then usable context, then decode speed, for one
 - [`STATUS.md`](STATUS.md) is the current truth. What is running, what is measured, what is broken.
 - [`AGENTS.md`](AGENTS.md) is how to work in this repository, including the duty to record findings.
 - [`CONTEXT.md`](CONTEXT.md) is the glossary.
-- [`clients/pi/`](clients/pi/README.md) is the checked MacBook client configuration and launch guide.
+- [pi-config](https://github.com/chriscorbell/pi-config) contains the complete MacBook Pi setup, including the local-server model definition and extension. [`clients/pi/`](clients/pi/README.md) records the migration and evaluation paths.
 - [`docs/log/`](docs/log/) is one file per Experiment, oldest to newest.
 - [`docs/research/`](docs/research/) holds the background research the plan was built on.
 

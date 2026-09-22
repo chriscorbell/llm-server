@@ -31,7 +31,8 @@ import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-EXTENSION = ROOT / "clients/pi/extensions/llm-server"
+PI_CONFIG = Path(os.environ.get("PI_CONFIG_REPO", str(Path.home() / "Code/pi-config"))).expanduser() / "agent"
+EXTENSION = PI_CONFIG / "extensions/llm-server"
 
 
 def main() -> int:
@@ -54,7 +55,7 @@ def main() -> int:
         config = work / "config"
         config.mkdir()
         for name in ("models.json", "settings.json"):
-            shutil.copy(ROOT / "clients/pi" / name, config / name)
+            shutil.copy(PI_CONFIG / name, config / name)
         rng = random.Random(42)
         for part in range(3):
             lines = [f"record_{part}_{i}: value={rng.randrange(100000, 999999)}; "

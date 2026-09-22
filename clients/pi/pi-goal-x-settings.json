@@ -1,5 +1,0 @@
-{
-  "provider": "llm-server",
-  "model": "qwen38",
-  "thinkingLevel": "medium"
-}
