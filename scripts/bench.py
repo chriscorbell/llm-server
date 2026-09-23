@@ -81,6 +81,12 @@ def metrics(url, key):
         position = re.search(r'position="(\d+)"', labels or "")
         key = name + (":" + position[1] if position else "")
         out[key] = out.get(key, 0) + float(value)
+    # Splash reports the same two totals under its own names.
+    for name, key in (("splash_drafted_tokens_total", "vllm:spec_decode_num_draft_tokens_total"),
+                      ("splash_accepted_draft_tokens_total", "vllm:spec_decode_num_accepted_tokens_total")):
+        match = re.search(rf"^{name}\s+([0-9.e+]+)$", text, re.M)
+        if match:
+            out[key] = out.get(key, 0) + float(match[1])
     return out
 
 CORPUS_DIR = Path(__file__).resolve().parent.parent
@@ -152,6 +158,11 @@ def request_body(a, prefix, rep):
     }
     if a.thinking:
         body["reasoning_effort"] = a.effort
+    elif a.off_effort:
+        # Splash ignores enable_thinking and only turns reasoning off through the effort field.
+        body["reasoning_effort"] = a.off_effort
+    if a.presence_penalty is not None:
+        body["presence_penalty"] = a.presence_penalty
     if a.workload == "tool":
         body["tools"] = [{"type": "function", "function": {
             "name": "write", "description": "Write a complete UTF-8 file.",
@@ -186,6 +197,10 @@ def main():
     ap.add_argument("--effort", choices=("low", "medium", "xhigh"), default="xhigh")
     ap.add_argument("--seed", type=int, default=42000, help="sampling seed; incremented for each repetition")
     ap.add_argument("--top-k", type=int, default=20)
+    ap.add_argument("--presence-penalty", type=float,
+                    help="override the preset (1.5 thinking off, 0 on); Splash rejects nonzero values")
+    ap.add_argument("--off-effort", choices=("none",),
+                    help="with thinking off, also send this reasoning_effort; required for Splash")
     ap.add_argument("--corpus", choices=("code", "prose", "filler"), default="code",
                     help="what kind of text to fill the prompt with")
     ap.add_argument("--json", help="write results to this path")
@@ -244,7 +259,7 @@ def main():
     result = {**result, "status": "complete",
         "prompt_tokens": med("prompt_tokens"), "prompt_tokens_target": a.prompt_tokens,
         "concurrency": 1, "gen": a.gen, "n": len(rows),
-        "corpus": a.corpus, "top_k": a.top_k,
+        "corpus": a.corpus, "top_k": a.top_k, "presence_penalty": a.presence_penalty, "off_effort": a.off_effort,
         "thinking": a.thinking, "prefix_cache_path": "warm" if a.warm else "cold",
         "effort": a.effort if a.thinking else None, "seed": a.seed,
         "ttft_s_median": round(med("ttft_s"), 3),
