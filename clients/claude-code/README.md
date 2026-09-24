@@ -11,7 +11,7 @@ chmod 600 ~/.config/llm-server/api-key
 ln -sf ~/Code/llm-server/clients/claude-code/claude-qwen ~/.local/bin/claude-qwen
 ```
 
-Then run `claude-qwen` instead of `claude`. Every argument passes through, so `claude-qwen -p "..."`, `claude-qwen --resume` and `claude-qwen --effort medium` all work. Plain `claude` keeps using your Anthropic login.
+Then run `claude-qwen` instead of `claude`. Every argument passes through, so `claude-qwen -p "..."` and `claude-qwen --resume` work. Plain `claude` keeps using your Anthropic login.
 
 ## What the launcher sets
 
@@ -21,8 +21,17 @@ Then run `claude-qwen` instead of `claude`. Every argument passes through, so `c
 | `ANTHROPIC_AUTH_TOKEN` | contents of the key file | Sent as `Authorization: Bearer`, which is what vLLM checks. `x-api-key` gets a 401. |
 | `ANTHROPIC_MODEL` and the opus, sonnet, haiku and subagent model variables | `qwen38` | Background tasks and subagents otherwise request Claude model IDs the server does not have. |
 | `CLAUDE_CODE_MAX_CONTEXT_TOKENS` | `131072` | Claude Code otherwise assumes 200,000 for an unknown model and compacts too late. |
-| `CLAUDE_CODE_EFFORT_LEVEL` | `xhigh`, or `$CLAUDE_QWEN_EFFORT` | The server rejects `high`, which is the `effortLevel` in `~/.claude/settings.json`. Use `low`, `medium` or `xhigh`. |
 | `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | `1` | No telemetry or update checks for these sessions. |
+
+## Reasoning effort
+
+`claude-qwen` starts at xhigh. It passes `--effort xhigh` unless you give your own `--effort`, so `claude-qwen --effort medium` works. To change the default, set `CLAUDE_QWEN_EFFORT=medium`. Inside a session, `/effort` changes the level for that session. It also saves a `qwen38` entry under `modelSettings` in `~/.claude/settings.json`, but the launcher's flag overrides that saved value at the next launch.
+
+Only `low`, `medium` and `xhigh` work. The server rejects `high` and `max` with a 500, which Claude Code retries for about three minutes. Without the launcher's default, Claude Code would send `high` from your `effortLevel` user setting.
+
+Do not set `CLAUDE_CODE_EFFORT_LEVEL` instead. It overrides both `--effort` and `/effort`, which locks the session to one level.
+
+## Environment
 
 The launcher also unsets `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN` and the host-session variables that a parent Claude Code session exports. Inherited from the desktop app, they override the token and the server returns 401 after about three minutes of retries.
 

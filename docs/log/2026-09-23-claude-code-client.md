@@ -1,6 +1,6 @@
 # 2026-09-23 Claude Code as a client
 
-Status: concluded
+Status: concluded; effort handling superseded by [2026-09-23 Claude Code effort override](2026-09-23-claude-code-effort-override.md)
 Profile: a-int4draft (unchanged)
 Author: agent thread on mbp
 

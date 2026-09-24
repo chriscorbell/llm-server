@@ -31,10 +31,15 @@ export CLAUDE_CODE_SUBAGENT_MODEL=qwen38
 # and would compact too late.
 export CLAUDE_CODE_MAX_CONTEXT_TOKENS=131072
 
-# The server accepts only low, medium and xhigh. The user settings default of
-# high is rejected with a 500.
-export CLAUDE_CODE_EFFORT_LEVEL="${CLAUDE_QWEN_EFFORT:-xhigh}"
-
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 
-exec claude "$@"
+# The server accepts only low, medium and xhigh. The user settings default of
+# high is rejected with a 500. Pass the default as a flag, not through
+# CLAUDE_CODE_EFFORT_LEVEL, because that variable overrides --effort and
+# /effort for the whole session.
+for arg in "$@"; do
+  case "$arg" in
+    --effort|--effort=*) exec claude "$@" ;;
+  esac
+done
+exec claude --effort "${CLAUDE_QWEN_EFFORT:-xhigh}" "$@"
