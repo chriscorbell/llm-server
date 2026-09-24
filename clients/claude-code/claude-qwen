@@ -1,0 +1,40 @@
+#!/bin/sh
+# Run Claude Code against Qwen3.8-27B on the vllm server.
+# All arguments pass through to `claude`, e.g. `claude-qwen -p "..."`.
+set -eu
+
+key_file="${LLM_SERVER_KEY_FILE:-$HOME/.config/llm-server/api-key}"
+if [ ! -r "$key_file" ]; then
+  echo "claude-qwen: missing API key file $key_file (see clients/claude-code/README.md)" >&2
+  exit 1
+fi
+
+# Credentials and host-session variables inherited from another Claude Code
+# session override ANTHROPIC_AUTH_TOKEN and produce a 401 from vLLM.
+unset ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN CLAUDE_CODE_SDK_HAS_HOST_AUTH_REFRESH \
+  CLAUDE_CODE_ENTRYPOINT CLAUDECODE CLAUDE_CODE_SESSION_ID CLAUDE_CODE_HOST_SESSION_ID \
+  CLAUDE_CODE_CHILD_SESSION CLAUDE_AGENT_SDK_VERSION
+
+export ANTHROPIC_BASE_URL="${LLM_SERVER_URL:-http://100.103.136.98:8000}"
+ANTHROPIC_AUTH_TOKEN="$(cat "$key_file")"
+export ANTHROPIC_AUTH_TOKEN
+
+# Every model slot, including the background "haiku" tasks and subagents, maps
+# to the one served model.
+export ANTHROPIC_MODEL=qwen38
+export ANTHROPIC_DEFAULT_OPUS_MODEL=qwen38
+export ANTHROPIC_DEFAULT_SONNET_MODEL=qwen38
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=qwen38
+export CLAUDE_CODE_SUBAGENT_MODEL=qwen38
+
+# The server window is 131,072 tokens; Claude Code otherwise assumes 200,000
+# and would compact too late.
+export CLAUDE_CODE_MAX_CONTEXT_TOKENS=131072
+
+# The server accepts only low, medium and xhigh. The user settings default of
+# high is rejected with a 500.
+export CLAUDE_CODE_EFFORT_LEVEL="${CLAUDE_QWEN_EFFORT:-xhigh}"
+
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+
+exec claude "$@"
